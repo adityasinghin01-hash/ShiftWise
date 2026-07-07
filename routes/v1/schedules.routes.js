@@ -32,6 +32,8 @@ const shiftSchema = validate([
   body('endTime')
     .matches(/^([01]\d|2[0-3]):[0-5]\d$/)
     .withMessage('endTime must be HH:MM.'),
+  // Required downstream: peer-shift / INCOMPATIBLE_PAIR matching keys on shiftType.
+  body('shiftType').trim().notEmpty().withMessage('shiftType is required.').isLength({ max: 50 }),
 ]);
 
 router.post('/', createSchema, scheduleController.createSchedule);

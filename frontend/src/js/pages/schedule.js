@@ -122,7 +122,7 @@ function render() {
           <select id="loc-select" class="input" style="max-width:180px">${locationOpts}</select>
           <button class="btn btn-ghost btn-sm" id="wk-prev">‹ Prev</button>
           <button class="btn btn-ghost btn-sm" id="wk-next">Next ›</button>
-          <button class="btn btn-secondary btn-sm" id="gen-btn">✨ Auto-generate</button>
+          <button class="btn btn-secondary btn-sm" id="gen-btn"${published ? ' disabled' : ''}>✨ Auto-generate</button>
           <button class="btn btn-primary btn-sm" id="pub-btn"${published ? ' disabled' : ''}>Publish</button>
         </div>
       </div>
@@ -211,6 +211,10 @@ function gridHTML(dates) {
     .map((d, i) => `<th style="min-width:110px">${DAYS[i]}<br><span class="text-muted" style="font-weight:400;font-size:0.72rem">${d.getUTCDate()}</span></th>`)
     .join('')}</tr>`;
 
+  // Editable only while it's a draft with no pending preview. A published
+  // schedule (or an un-accepted preview) is read-only.
+  const editable = schedule?.status !== 'published' && !preview;
+
   const rows = staff
     .map((s) => {
       const cells = dates
@@ -218,10 +222,10 @@ function gridHTML(dates) {
           const chips = cellShifts(s._id, d)
             .map(
               (sh) =>
-                `<span class="badge badge-green" data-shift="${sh._id || ''}" style="display:block;margin:2px 0;cursor:${preview ? 'default' : 'pointer'}" title="${preview ? '' : 'Click to remove'}">${esc(sh.startTime)}–${esc(sh.endTime)}</span>`
+                `<span class="badge badge-green" data-shift="${sh._id || ''}" style="display:block;margin:2px 0;cursor:${editable ? 'pointer' : 'default'}" title="${editable ? 'Click to remove' : ''}">${esc(sh.startTime)}–${esc(sh.endTime)}</span>`
             )
             .join('');
-          const addBtn = preview
+          const addBtn = !editable
             ? ''
             : `<button class="cell-add" data-staff="${s._id}" data-date="${d.toISOString()}" style="width:100%;background:none;border:1px dashed var(--glass-border);color:var(--text-muted);border-radius:6px;cursor:pointer;font-size:0.75rem;padding:2px">+</button>`;
           return `<td style="vertical-align:top;padding:4px">${chips}${addBtn}</td>`;
@@ -236,7 +240,8 @@ function gridHTML(dates) {
 }
 
 function wireCells(dates) {
-  if (preview) return; // preview is read-only until accepted/discarded
+  // Read-only while a preview is pending or the schedule is published.
+  if (preview || schedule?.status === 'published') return;
   // Remove a shift on chip click
   document.querySelectorAll('[data-shift]').forEach((chip) => {
     chip.addEventListener('click', async () => {
@@ -301,7 +306,10 @@ async function doGenerate() {
   btn.disabled = true;
   btn.textContent = 'Generating…';
   try {
-    preview = (await scheduleApi.generate(schedule._id)).data;
+    // Backend shape is { preview: [...shifts], conflicts, fairnessScore } —
+    // normalize to { shifts, conflicts, fairnessScore } used throughout this page.
+    const d = (await scheduleApi.generate(schedule._id)).data;
+    preview = { shifts: d.preview || [], conflicts: d.conflicts || [], fairnessScore: d.fairnessScore };
     render();
     toast(`Preview: ${preview.shifts.length} shifts, fairness ${preview.fairnessScore}%`, 'success');
   } catch (err) {

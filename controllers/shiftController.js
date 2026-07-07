@@ -11,12 +11,14 @@
 const Schedule = require('../models/Schedule');
 const Shift = require('../models/Shift');
 const scheduler = require('../services/schedulerService');
+const { toShiftEnum } = require('../utils/shiftType');
 const logger = require('../config/logger');
 
-const toShiftEnum = (t) =>
-  ['morning', 'afternoon', 'evening'].includes(String(t).toLowerCase())
-    ? String(t).toLowerCase()
-    : 'custom';
+/** Normalize any date to UTC midnight so peer-shift/day matching is exact. */
+const utcMidnight = (d) => {
+  const x = new Date(d);
+  return new Date(Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate()));
+};
 
 /**
  * @route   POST /api/v1/schedules/:id/shifts
@@ -55,7 +57,7 @@ exports.createShift = async (req, res, next) => {
       businessId: schedule.businessId,
       locationId: schedule.locationId,
       staffId,
-      date: new Date(date),
+      date: utcMidnight(date),
       startTime,
       endTime,
       shiftType: toShiftEnum(shiftType),
@@ -90,19 +92,22 @@ exports.updateShift = async (req, res, next) => {
 
     const next_ = {
       staffId: req.body.staffId ?? shift.staffId,
-      date: req.body.date ? new Date(req.body.date) : shift.date,
+      date: req.body.date ? utcMidnight(req.body.date) : shift.date,
       startTime: req.body.startTime ?? shift.startTime,
       endTime: req.body.endTime ?? shift.endTime,
       shiftType: req.body.shiftType ? toShiftEnum(req.body.shiftType) : shift.shiftType,
     };
 
     // Re-validate the (possibly) changed assignment, excluding this shift itself.
+    // shiftType matters: INCOMPATIBLE_PAIR matches peers by day + shiftType, so a
+    // type change alone can create a new pairing and must be re-checked.
     let verdict = { hard: [], soft: [] };
     const assignmentChanged =
       req.body.staffId !== undefined ||
       req.body.date !== undefined ||
       req.body.startTime !== undefined ||
-      req.body.endTime !== undefined;
+      req.body.endTime !== undefined ||
+      req.body.shiftType !== undefined;
     if (assignmentChanged) {
       verdict = await scheduler.verifyAssignment({
         scheduleId: shift.scheduleId,
@@ -124,6 +129,11 @@ exports.updateShift = async (req, res, next) => {
     await shift.save();
     res.status(200).json({ success: true, data: shift, verdict });
   } catch (err) {
+    if (err.message === 'STAFF_NOT_FOUND') {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found.', request_id: req.id });
+    }
     logger.error('Error in updateShift:', err);
     next(err);
   }

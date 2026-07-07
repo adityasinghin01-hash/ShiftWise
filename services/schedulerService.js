@@ -245,6 +245,7 @@ module.exports.checkAssignment = checkAssignment;
 const generateSchedule = async (scheduleId) => {
   // Lazy requires (keep the pure core importable without pulling in models).
   const Schedule = require('../models/Schedule');
+  const Business = require('../models/Business');
   const Location = require('../models/Location');
   const StaffMember = require('../models/StaffMember');
   const Availability = require('../models/Availability');
@@ -257,8 +258,11 @@ const generateSchedule = async (scheduleId) => {
   if (!schedule) throw new Error('SCHEDULE_NOT_FOUND');
   const location = await Location.findById(schedule.locationId);
   if (!location) throw new Error('LOCATION_NOT_FOUND');
+  const business = await Business.findById(schedule.businessId);
 
-  const weekStartsOn = 0; // app convention: 0 = Monday
+  // Honor the business's configured week start (0=Mon default) so availability
+  // dayOfWeek matching lines up with how staff entered it.
+  const weekStartsOn = business?.settings?.weekStartsOn ?? 0;
   const baseMs = startOfWeek(schedule.periodStart, weekStartsOn).getTime();
   const weekDates = Array.from({ length: 7 }, (_, d) => new Date(baseMs + d * DAY_MS));
   const weekEndMs = baseMs + 7 * DAY_MS;
@@ -677,6 +681,7 @@ module.exports.assignSlots = assignSlots;
  */
 async function verifyAssignment(p) {
   const Schedule = require('../models/Schedule');
+  const Business = require('../models/Business');
   const Location = require('../models/Location');
   const StaffMember = require('../models/StaffMember');
   const Availability = require('../models/Availability');
@@ -687,12 +692,20 @@ async function verifyAssignment(p) {
   const schedule = await Schedule.findById(p.scheduleId);
   if (!schedule) throw new Error('SCHEDULE_NOT_FOUND');
   const location = await Location.findById(schedule.locationId);
-  const staff = await StaffMember.findById(p.staffId);
+  if (!location) throw new Error('LOCATION_NOT_FOUND');
+  // TENANCY: scope the staff lookup to the schedule's business so a foreign
+  // staffId can't be resolved (and its name/role leaked via the verdict).
+  const staff = await StaffMember.findOne({ _id: p.staffId, businessId: schedule.businessId });
   if (!staff) throw new Error('STAFF_NOT_FOUND');
+  const business = await Business.findById(schedule.businessId);
+  const weekStartsOn = business?.settings?.weekStartsOn ?? 0;
 
+  // Normalize to UTC midnight so the peer-shift date match (stored at midnight)
+  // is exact — otherwise a non-midnight time would silently miss INCOMPATIBLE_PAIR.
   const date = new Date(p.date);
-  const dayOfWeek = (date.getUTCDay() + 6) % 7; // 0=Mon … 6=Sun
-  const dayISO = date.toISOString().slice(0, 10);
+  const dayStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayOfWeek = (dayStart.getUTCDay() + 6) % 7; // 0=Mon … 6=Sun
+  const dayISO = dayStart.toISOString().slice(0, 10);
   const idStr = (v) => String(v);
   const notSelf = p.excludeShiftId ? { _id: { $ne: p.excludeShiftId } } : {};
 
@@ -702,15 +715,15 @@ async function verifyAssignment(p) {
       businessId: schedule.businessId,
       staffId: p.staffId,
       status: 'approved',
-      startDate: { $lte: date },
-      endDate: { $gte: date },
+      startDate: { $lte: dayStart },
+      endDate: { $gte: dayStart },
     }),
     Shift.find({ scheduleId: p.scheduleId, staffId: p.staffId, ...notSelf }),
-    Shift.find({ scheduleId: p.scheduleId, shiftType: p.shiftType, date, ...notSelf }),
+    Shift.find({ scheduleId: p.scheduleId, shiftType: p.shiftType, date: dayStart, ...notSelf }),
   ]);
 
   const availabilityIndex = new Map();
-  for (const ds of resolveAvailability(av, schedule.periodStart, 0)) {
+  for (const ds of resolveAvailability(av, schedule.periodStart, weekStartsOn)) {
     availabilityIndex.set(ds.dayOfWeek, {
       available: ds.available !== false,
       start: ds.preferredStart,
@@ -731,7 +744,7 @@ async function verifyAssignment(p) {
     endTime: o.endTime,
   }));
   const slot = {
-    date,
+    date: dayStart,
     dayOfWeek,
     shiftType: p.shiftType,
     startTime: p.startTime,

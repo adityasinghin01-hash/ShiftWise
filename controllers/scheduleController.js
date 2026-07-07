@@ -13,6 +13,7 @@ const Location = require('../models/Location');
 const Shift = require('../models/Shift');
 const scheduler = require('../services/schedulerService');
 const { startOfWeek } = require('../utils/weekUtils');
+const { toShiftEnum } = require('../utils/shiftType');
 const logger = require('../config/logger');
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -107,12 +108,6 @@ exports.generateSchedule = async (req, res, next) => {
     next(err);
   }
 };
-
-// Map a free-form shiftType label to the Shift enum; unknown → 'custom'.
-const toShiftEnum = (t) =>
-  ['morning', 'afternoon', 'evening'].includes(String(t).toLowerCase())
-    ? String(t).toLowerCase()
-    : 'custom';
 
 /**
  * @route   POST /api/v1/schedules/:id/apply
