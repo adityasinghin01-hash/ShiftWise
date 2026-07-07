@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShiftWise</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scrollbar-width: none; }
+      html::-webkit-scrollbar { display: none; }
+      body { background: #080810; width: 100vw; height: 100vh; overflow: hidden; font-family: 'Inter', sans-serif; cursor: none; }
+      #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+      /* Scroll driver */
+      #sd { position: absolute; top: 0; left: 0; width: 1px; height: 600vh; pointer-events: none; z-index: -1; }
+      /* UI layer */
+      #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+      /* Loading */
+      #loading { position: fixed; inset: 0; background: #080810; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; transition: opacity 0.8s; }
+      #loading.out { opacity: 0; pointer-events: none; }
+      .ll { font-family: 'Playfair Display', serif; font-size: clamp(1.6rem,4vw,2.8rem); font-weight: 600; color: #f0e4c8; letter-spacing: 0.18em; margin-bottom: 1.8rem; }
+      .lb { width: 140px; height: 1px; background: rgba(255,255,255,0.08); overflow: hidden; }
+      .lf { height: 100%; background: #4ea864; width: 0; transition: width 0.12s; }
+      /* Nav */
+      #nav { position: fixed; top: 0; left: 0; right: 0; padding: 1.6rem 2.5rem; display: flex; justify-content: space-between; align-items: center; z-index: 30; pointer-events: all; }
+      .nav-logo { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: #f0e4c8; letter-spacing: 0.1em; }
+      .nav-links { display: flex; gap: 2rem; }
+      .nav-links a { color: rgba(240,228,200,0.45); font-size: 0.82rem; text-decoration: none; letter-spacing: 0.08em; transition: color 0.2s; }
+      .nav-links a:hover { color: #f0e4c8; }
+      .nav-cta { padding: 0.55rem 1.4rem; border: 1px solid rgba(240,228,200,0.2); border-radius: 4px; color: #f0e4c8; font-size: 0.82rem; text-decoration: none; pointer-events: all; transition: background 0.2s; }
+      .nav-cta:hover { background: rgba(240,228,200,0.08); }
+      /* Scroll hint */
+      #sh { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(240,228,200,0.3); z-index: 20; transition: opacity 0.4s; }
+      #sh.h { opacity: 0; }
+      /* Progress */
+      #pr { position: fixed; top: 0; left: 0; height: 1px; background: linear-gradient(90deg,#2d6e1f,#7ec8a0); width: 0; z-index: 20; }
+      /* Section text */
+      .st { position: fixed; pointer-events: none; z-index: 15; opacity: 0; transition: none; }
+      /* Cursor */
+      #cd { position: fixed; width: 6px; height: 6px; background: #f0e4c8; border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%,-50%); }
+      #cb { position: fixed; width: 48px; height: 48px; background: radial-gradient(circle, rgba(78,168,100,0.22) 0%, rgba(78,168,100,0) 70%); border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%,-50%); filter: blur(0.5px); }
+      #cg { position: fixed; width: 200px; height: 200px; background: radial-gradient(circle, rgba(78,168,100,0.06) 0%, transparent 70%); border-radius: 50%; pointer-events: none; z-index: 9997; transform: translate(-50%,-50%); filter: blur(4px); }
+      /* Vignette */
+      #vg { position: fixed; inset: 0; background: radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.7) 100%); pointer-events: none; z-index: 8; }
+    </style>
+  </head>
+  <body>
+    <div id="sd"></div>
+    <canvas id="c"></canvas>
+    <div id="ui"></div>
+
+    <div id="sh">Scroll to explore</div>
+    <div id="pr"></div>
+    <div id="cd"></div>
+    <div id="cb"></div>
+    <div id="cg"></div>
+    <div id="vg"></div>
+    <script type="module" src="/src/landing.js"></script>
+  </body>
+</html>

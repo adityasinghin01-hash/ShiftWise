@@ -374,3 +374,58 @@ tr:hover td { background: var(--glass-bg); }
   .main-content { padding: 16px; }
   .bento-1, .bento-2, .bento-3, .bento-half { grid-column: span 12; }
 }
+
+/* ── SHIFTWISE: ONBOARDING WIZARD (Phase 1) ── */
+.ob-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.ob-card { width: 100%; max-width: 560px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; box-shadow: var(--shadow); }
+.ob-logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-head); font-size: 1.3rem; font-weight: 700; margin-bottom: 24px; }
+.ob-steps { display: flex; align-items: center; margin-bottom: 28px; }
+.ob-step { display: flex; align-items: center; gap: 8px; opacity: 0.4; transition: var(--transition); }
+.ob-step.active, .ob-step.done { opacity: 1; }
+.ob-step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--glass-bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; }
+.ob-step.active .ob-step-num { background: var(--primary); border-color: var(--primary-light); color: #fff; }
+.ob-step.done .ob-step-num { background: var(--primary-light); color: #fff; }
+.ob-step-label { font-size: 0.8rem; }
+.ob-step-line { flex: 1; height: 1px; background: var(--border); margin: 0 10px; }
+.ob-title { font-family: var(--font-head); font-size: 1.4rem; margin-bottom: 6px; }
+.ob-sub { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 22px; }
+.ob-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; font-size: 0.82rem; color: var(--text-secondary); }
+.ob-field input, .ob-field select { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text); font-family: var(--font-body); font-size: 0.9rem; }
+.ob-field input:focus, .ob-field select:focus { outline: none; border-color: var(--primary-light); }
+.ob-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ob-check { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary); margin-top: 12px; }
+.ob-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; }
+.shift-type-row, .staff-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+.shift-type-row input, .staff-row input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; color: var(--text); font-size: 0.85rem; }
+.shift-type-row .st-color { flex: 0 0 36px; padding: 2px; height: 36px; }
+.st-del, .sr-del { flex: 0 0 auto; background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.9rem; padding: 6px; }
+
+/* ── SHIFTWISE: SETTINGS TABS (Phase 1) ── */
+.settings-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.settings-tab { background: none; border: none; padding: 12px 18px; color: var(--text-secondary); font-size: 0.88rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: var(--transition); }
+.settings-tab:hover { color: var(--text); }
+.settings-tab.active { color: var(--primary-light); border-bottom-color: var(--primary); }
+
+/* ── SHIFTWISE: MODAL + STATUS BADGES (Phase 2) ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
+.modal-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
+.modal-title { font-family: var(--font-head); font-size: 1.2rem; margin-bottom: 18px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.badge-muted { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+.badge-amber { background: rgba(245,158,11,0.15); color: var(--warning); }
+.badge-green { background: rgba(16,185,129,0.15); color: var(--success); }
+
+/* ── SHIFTWISE: AVAILABILITY (Phase 3) ── */
+.avail-grid { display: flex; flex-direction: column; gap: 8px; }
+.avail-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.avail-day { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; }
+.avail-times { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary); transition: var(--transition); }
+.avail-times input { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 5px 8px; }
+.avail-pending { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-light); font-size: 0.85rem; gap: 12px; }
+.avail-pending:last-child { border-bottom: none; }
+.avail-table th, .avail-table td { text-align: center; padding: 10px 8px; }
+.avail-table th:first-child, .avail-table td:first-child { text-align: left; }
+.avail-cell { font-weight: 700; }
+.avail-cell.on { color: var(--success); }
+.avail-cell.off { color: var(--text-muted); }
+.ctrl-select { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 7px 10px; font-size: 0.85rem; }

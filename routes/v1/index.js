@@ -16,6 +16,13 @@ const apiKeyRoutes = require('./apikeys.routes');
 const webhookRoutes = require('./webhooks.routes');
 const mfaRoutes = require('./mfa.routes');
 
+// ── ShiftWise domain routes (Phase 1+) ───────────────────
+const businessRoutes = require('./business.routes');
+const locationRoutes = require('./locations.routes');
+const staffRoutes = require('./staff.routes');
+const joinRoutes = require('./join.routes');
+const availabilityRoutes = require('./availability.routes');
+
 // ── Auth ─────────────────────────────────────────────────
 router.use('/', authRoutes);
 
@@ -42,5 +49,20 @@ router.use('/webhooks', webhookRoutes);
 
 // ── MFA ──────────────────────────────────────────────────
 router.use('/mfa', mfaRoutes);
+
+// ── ShiftWise: Business ──────────────────────────────────
+router.use('/business', businessRoutes);
+
+// ── ShiftWise: Locations ─────────────────────────────────
+router.use('/locations', locationRoutes);
+
+// ── ShiftWise: Staff ─────────────────────────────────────
+router.use('/staff', staffRoutes);
+
+// ── ShiftWise: Join (invite acceptance) ──────────────────
+router.use('/join', joinRoutes);
+
+// ── ShiftWise: Availability ──────────────────────────────
+router.use('/', availabilityRoutes);
 
 module.exports = router;
