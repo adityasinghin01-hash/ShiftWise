@@ -4,6 +4,8 @@ const KEY = 'spinx_user';
 
 export const store = {
   user: null,
+  onboarding: null,
+  membership: null, // 'owner' | 'staff' | null — set after resolveBusiness or join
 
   load() {
     try {
@@ -23,6 +25,8 @@ export const store = {
 
   clear() {
     this.user = null;
+    this.onboarding = null;
+    this.membership = null;
     sessionStorage.removeItem(KEY);
   },
 

@@ -166,6 +166,37 @@ const templates = {
       footer: 'This code was requested for your ShiftWise account.',
     }),
 
+  // ── Staff invite (Phase 2) ──────────────────────────
+  inviteEmail: ({ inviteUrl, businessName, inviterName }) =>
+    base({
+      title: `You're invited to ${businessName} — ShiftWise`,
+      preview: `${inviterName || 'Your manager'} invited you to join ${businessName} on ShiftWise.`,
+      body: `
+        ${heading('You\'ve been invited')}
+        ${para(`${inviterName ? '<strong style="color:' + BRAND.text + '">' + inviterName + '</strong>' : 'Your manager'} has invited you to join <strong style="color:${BRAND.text}">${businessName}</strong> on ShiftWise.`)}
+        ${para('Accept the invite to set up your account, share your availability, and see your shifts — all in one place.')}
+        ${para('This invite is valid for <strong style="color:' + BRAND.text + '">7 days</strong>.')}
+        ${ctaBtn('Accept Invite', inviteUrl)}
+        ${note('If you weren\'t expecting this invitation, you can safely ignore this email.')}
+      `,
+      footer: `You received this because ${businessName} invited you to ShiftWise.`,
+    }),
+
+  // ── Emergency shift notification (Phase 2/3) ────────
+  emergencyShiftEmail: ({ staffName, businessName, message, shiftsHtml }) =>
+    base({
+      title: `Shift update — ${businessName}`,
+      preview: message ? message.slice(0, 90) : `An important shift update from ${businessName}.`,
+      body: `
+        ${heading('Shift update')}
+        ${para(`Hi ${staffName || 'there'}, you have an important update from <strong style="color:${BRAND.text}">${businessName}</strong>.`)}
+        ${message ? para(message) : ''}
+        ${shiftsHtml || ''}
+        ${note('Please contact your manager directly if you have any questions about this shift.')}
+      `,
+      footer: `Sent by ${businessName} via ShiftWise.`,
+    }),
+
   emailVerifiedWeb: () => `<!DOCTYPE html>
 <html lang="en">
 <head>

@@ -175,3 +175,48 @@ export const healthApi = isMockMode()
       check: () => request('/health', { base: HEALTH_BASE }),
       deep: () => request('/health/deep', { base: HEALTH_BASE }),
     };
+
+/* ── SHIFTWISE: BUSINESS (Phase 1) ── */
+export const businessApi = {
+  create: (body) => request('/business', { method: 'POST', body }),
+  get: () => request('/business', { method: 'GET' }),
+  update: (body) => request('/business', { method: 'PUT', body }),
+};
+
+/* ── SHIFTWISE: LOCATIONS (Phase 1) ── */
+export const locationApi = {
+  list: () => request('/locations', { method: 'GET' }),
+  create: (body) => request('/locations', { method: 'POST', body }),
+  get: (id) => request(`/locations/${id}`, { method: 'GET' }),
+  update: (id, body) => request(`/locations/${id}`, { method: 'PUT', body }),
+  remove: (id) => request(`/locations/${id}`, { method: 'DELETE' }),
+};
+
+/* ── SHIFTWISE: STAFF (Phase 2) ── */
+export const staffApi = {
+  list: () => request('/staff', { method: 'GET' }),
+  create: (body) => request('/staff', { method: 'POST', body }),
+  bulk: (body) => request('/staff/bulk', { method: 'POST', body }),
+  update: (id, body) => request(`/staff/${id}`, { method: 'PUT', body }),
+  remove: (id) => request(`/staff/${id}`, { method: 'DELETE' }),
+  invite: (id) => request(`/staff/${id}/invite`, { method: 'POST' }),
+  notify: (id, body) => request(`/staff/${id}/notify`, { method: 'POST', body }),
+};
+
+/* ── SHIFTWISE: JOIN (Phase 2, public) ── */
+export const joinApi = {
+  validate: (token) => request(`/join/validate?token=${encodeURIComponent(token)}`, { method: 'GET' }),
+  accept: (body) => request('/join/accept', { method: 'POST', body }),
+  completeProfile: (body) => request('/join/complete-profile', { method: 'POST', body }),
+};
+
+/* ── SHIFTWISE: AVAILABILITY (Phase 3) ── */
+export const availabilityApi = {
+  getMine: () => request('/my/availability', { method: 'GET' }),
+  setRecurring: (recurring) => request('/my/availability', { method: 'PUT', body: { recurring } }),
+  setOverride: (body) => request('/my/availability/override', { method: 'PUT', body }),
+  locationOverview: (locationId, weekOf) =>
+    request(`/locations/${locationId}/availability${weekOf ? `?weekOf=${encodeURIComponent(weekOf)}` : ''}`, { method: 'GET' }),
+  requestOverride: (staffId, body) => request(`/availability/${staffId}/override-request`, { method: 'POST', body }),
+  reviewOverride: (id, decision) => request(`/availability/override-request/${id}`, { method: 'PUT', body: { decision } }),
+};
