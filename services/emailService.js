@@ -106,7 +106,7 @@ const sendStaffInviteEmail = async (
 ) => {
   // Use a query param (?invite=) NOT a hash fragment (#join?token=) — email clients
   // and click-tracking redirects strip everything after '#', which would drop the token.
-  const inviteUrl = `${config.CLIENT_URL}/?invite=${rawToken}`;
+  const inviteUrl = `${config.CLIENT_URL}/?invite=${encodeURIComponent(rawToken)}`;
   await sendEmail({
     to: email,
     toName: staffName,

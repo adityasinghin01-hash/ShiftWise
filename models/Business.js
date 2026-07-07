@@ -22,7 +22,7 @@ const businessSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true,
+      unique: true, // one business per owner — DB-enforced (guards the createBusiness race)
     },
 
     // ── Business-wide settings ────────────────────────────

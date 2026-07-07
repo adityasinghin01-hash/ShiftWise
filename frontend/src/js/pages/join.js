@@ -79,7 +79,15 @@ async function accept(token, info) {
     const res = await joinApi.accept({ token, password: pass, name, source: 'web' });
     // Clear the stashed invite token — it's now used
     sessionStorage.removeItem('shiftwise_invite_token');
-    // Log the new staff member in (mirror the auth flow)
+
+    // Existing account: backend linked the staff record but did NOT log us in
+    // (invite-accept must not bypass the normal password/MFA login). Send to login.
+    if (res.requiresLogin) {
+      toast(res.message || 'Your account is linked. Please log in.', 'success');
+      return navigate('login');
+    }
+
+    // Brand-new account → log the new staff member in (mirror the auth flow)
     if (res.accessToken) auth.setToken(res.accessToken);
     if (res.user) store.save(res.user);
     store.onboarding = 'ok';

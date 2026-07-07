@@ -13,7 +13,9 @@ const logger = require('../config/logger');
  */
 const requireOwner = (req, res, next) => {
   if (req.membership !== 'owner') {
-    logger.warn(`Non-owner (${req.membership}) attempted owner-only route: ${req.originalUrl}`);
+    // Strip CR/LF from the user-controlled URL before logging (prevents log forging / CWE-117).
+    const safeUrl = String(req.originalUrl).replace(/[\r\n]/g, '');
+    logger.warn(`Non-owner (${req.membership}) attempted owner-only route: ${safeUrl}`);
     return res.status(403).json({
       success: false,
       message: 'Forbidden: Owner access required',

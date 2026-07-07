@@ -13,6 +13,7 @@ const StaffInvite = require('../models/StaffInvite');
 const Shift = require('../models/Shift');
 const hashToken = require('../utils/hashToken');
 const emailService = require('../services/emailService');
+const htmlEscape = require('../utils/htmlEscape');
 const logger = require('../config/logger');
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -165,6 +166,11 @@ exports.bulkCreateStaff = async (req, res, next) => {
           errors.push({ row: i, reason: 'name and email are required' });
           continue;
         }
+        // Reject malformed emails per-row (else invite/notify email sends fail later).
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(row.email).trim())) {
+          errors.push({ row: i, reason: 'invalid email format' });
+          continue;
+        }
         const staff = await StaffMember.create({
           businessId: req.business._id,
           name: String(row.name).trim(),
@@ -314,7 +320,8 @@ exports.notifyStaff = async (req, res, next) => {
       ? `<table style="width:100%;border-collapse:collapse;margin:16px 0">${shifts
           .map(
             (s) =>
-              `<tr><td style="padding:8px;border-bottom:1px solid rgba(78,168,100,0.15);color:#b8a98a;font-size:14px">${new Date(s.date).toDateString()} · ${s.startTime}–${s.endTime}</td></tr>`
+              // Escape shift time fields — they end up as raw HTML in the outbound email.
+              `<tr><td style="padding:8px;border-bottom:1px solid rgba(78,168,100,0.15);color:#b8a98a;font-size:14px">${new Date(s.date).toDateString()} · ${htmlEscape(String(s.startTime))}–${htmlEscape(String(s.endTime))}</td></tr>`
           )
           .join('')}</table>`
       : '';

@@ -32,6 +32,19 @@ const locationBodySchema = validate([
   body('settings.maxHoursPerWeek').optional().isInt({ min: 0, max: 168 }),
 ]);
 
+// Update variant: same constraints, but name is optional (partial updates allowed).
+// Applied to PUT so updates can't slip invalid scheduling rules past the checks
+// that create enforces (the scheduling engine later reads these values).
+const locationUpdateSchema = validate([
+  body('name').optional().trim().notEmpty().isLength({ max: 100 }),
+  body('address').optional().isString().isLength({ max: 255 }),
+  body('timezone').optional({ nullable: true }).isString().isLength({ max: 64 }),
+  body('settings').optional().isObject(),
+  body('settings.minStaffPerShift').optional().isInt({ min: 0 }),
+  body('settings.maxStaffPerShift').optional().isInt({ min: 0 }),
+  body('settings.maxHoursPerWeek').optional().isInt({ min: 0, max: 168 }),
+]);
+
 // All location routes require auth + a resolved business + owner role
 router.use(protect(), resolveBusiness, requireOwner);
 
@@ -48,7 +61,7 @@ router.get('/:id', locationController.getLocation);
 router.get('/:id/availability', availabilityController.getLocationAvailability);
 
 // ── PUT /api/v1/locations/:id — update ──
-router.put('/:id', locationController.updateLocation);
+router.put('/:id', locationUpdateSchema, locationController.updateLocation);
 
 // ── DELETE /api/v1/locations/:id — soft delete ──
 router.delete('/:id', locationController.deleteLocation);

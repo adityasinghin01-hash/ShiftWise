@@ -91,9 +91,14 @@ exports.acceptInvite = async (req, res, next) => {
       });
     }
 
-    // Find or create the User. Email-match fallback: if a user already exists
-    // with the invite email, link it instead of creating a duplicate.
+    // Email-match fallback: if a user already exists with the invite email,
+    // link that account instead of creating a duplicate.
+    // SECURITY: we do NOT mint a session for an already-existing account —
+    // accepting an invite must not bypass the normal password/MFA login flow
+    // (see authController.login). Only a brand-new account, whose password is
+    // set right here, is safe to log in immediately.
     let user = await User.findOne({ email: invite.email });
+    const isExistingUser = !!user;
     if (!user) {
       if (!password) {
         return res.status(422).json({
@@ -122,7 +127,19 @@ exports.acceptInvite = async (req, res, next) => {
     invite.acceptedAt = new Date();
     await invite.save();
 
-    // Issue a session (mirrors login)
+    logger.info(`Staff ${staff._id} joined business ${invite.businessId}`);
+
+    // Existing account → link only; require a normal login (no session here).
+    if (isExistingUser) {
+      return res.status(200).json({
+        success: true,
+        linked: true,
+        requiresLogin: true,
+        message: 'Your account is now linked to this team. Please log in to continue.',
+      });
+    }
+
+    // Brand-new account → issue a session (password was just set above).
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user, false);
     user.refreshTokens.push({
@@ -144,8 +161,6 @@ exports.acceptInvite = async (req, res, next) => {
         path: '/',
       });
     }
-
-    logger.info(`Staff ${staff._id} joined business ${invite.businessId}`);
 
     res.status(200).json({
       success: true,

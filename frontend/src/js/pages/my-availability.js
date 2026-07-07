@@ -9,6 +9,14 @@ import { mountLayout } from '../layout.js';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']; // 0..6
 
+/** Full HTML escape — consistent with settings.js/team.js/join.js (not just `<`). */
+function esc(s = '') {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  );
+}
+
 let recurring = []; // working copy of recurring slots, indexed by dayOfWeek
 
 /** Build a slots array keyed by day from the stored recurring slots */
@@ -43,7 +51,7 @@ export async function renderMyAvailability() {
     document.getElementById('avail-body').innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">⚠️</div>
       <div class="empty-state-title">Couldn't load availability</div>
-      <div class="empty-state-desc">${(err.message || '').replace(/</g, '&lt;')}</div></div>`;
+      <div class="empty-state-desc">${esc(err.message || '')}</div></div>`;
   }
 }
 
@@ -57,7 +65,7 @@ function renderEditor(data) {
     <div class="card-header"><span class="card-title">Override requests from your manager</span></div>
     ${pending.map((p) => `
       <div class="avail-pending" data-id="${p._id}">
-        <span>Week of ${new Date(p.weekOf).toDateString()}${p.note ? ` — "${p.note.replace(/</g, '&lt;')}"` : ''}</span>
+        <span>Week of ${new Date(p.weekOf).toDateString()}${p.note ? ` — "${esc(p.note)}"` : ''}</span>
         <span>
           <button class="btn btn-primary btn-sm" data-confirm="${p._id}">Confirm</button>
           <button class="btn btn-ghost btn-sm" data-decline="${p._id}">Decline</button>

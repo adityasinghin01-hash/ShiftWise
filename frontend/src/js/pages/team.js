@@ -4,14 +4,26 @@
  * Picks up any staff stashed by the onboarding wizard (shiftwise_pending_staff).
  */
 
-import { staffApi } from '../api.js';
+import { staffApi, locationApi } from '../api.js';
 import { toast } from '../toast.js';
 import { mountLayout } from '../layout.js';
 
 let cache = [];
+let locations = []; // business locations — new staff default to the first one
 
 function esc(s = '') {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/**
+ * Location to assign newly-added staff to. Defaults to the first location so
+ * they can immediately set availability / be scheduled (manager can reassign
+ * later via edit). Returns [] if the business has no locations yet.
+ */
+function defaultLocationIds() {
+  const first = locations[0];
+  const id = first && (first.id || first._id);
+  return id ? [id] : [];
 }
 
 const STATUS_BADGE = {
@@ -41,6 +53,13 @@ export async function renderTeam() {
   document.getElementById('add-btn').addEventListener('click', () => openAddModal());
   document.getElementById('bulk-btn').addEventListener('click', () => openBulkModal());
 
+  // Load locations so newly-added staff can be assigned one (else they can't
+  // set availability or be scheduled).
+  try {
+    locations = (await locationApi.list()).data || [];
+  } catch {
+    locations = [];
+  }
   await loadStaff();
 }
 
@@ -86,7 +105,7 @@ function rowHTML(s) {
     <td><strong>${esc(s.name)}</strong><br><span class="text-muted" style="font-size:0.75rem">${esc(s.email)}</span></td>
     <td>${esc(s.role || '—')}</td>
     <td>${STATUS_BADGE[s.accountStatus] || ''}</td>
-    <td>${s.hourlyRate ? esc(String(s.hourlyRate)) : '—'}</td>
+    <td>${s.hourlyRate != null ? esc(String(s.hourlyRate)) : '—'}</td>
     <td>${s.maxHoursPerWeek || '—'}</td>
     <td style="white-space:nowrap">
       ${canInvite ? `<button class="btn btn-ghost btn-sm" id="invite-${s._id}">${s.accountStatus === 'invited' ? 'Resend' : 'Invite'}</button>` : ''}
@@ -122,6 +141,7 @@ function openAddModal() {
     hourlyRate: +document.getElementById('m-rate').value || 0,
     maxHoursPerWeek: +document.getElementById('m-hours').value || 0,
     manuallyManaged: document.getElementById('m-manual').checked,
+    locationIds: defaultLocationIds(),
   });
 
   const save = async (sendInvite) => {
@@ -162,7 +182,7 @@ function openBulkModal() {
     });
     if (!rows.length) return toast('Paste at least one row', 'error');
     try {
-      const res = await staffApi.bulk({ rows, sendInvite: document.getElementById('bulk-invite').checked });
+      const res = await staffApi.bulk({ rows, sendInvite: document.getElementById('bulk-invite').checked, locationIds: defaultLocationIds() });
       const { created, errors } = res.data;
       toast(`Imported ${created.length}${errors.length ? `, ${errors.length} skipped` : ''}`, errors.length ? 'warning' : 'success');
       closeModal();

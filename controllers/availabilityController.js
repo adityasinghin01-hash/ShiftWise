@@ -108,6 +108,13 @@ exports.setMyOverride = async (req, res, next) => {
         .json({ success: false, message: 'Only staff can set availability.', request_id: req.id });
     }
     const locationId = primaryLocation(req.staffMember);
+    if (!locationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are not assigned to a location yet.',
+        request_id: req.id,
+      });
+    }
     const { weekOf, slots } = req.body;
     if (!weekOf || !Array.isArray(slots)) {
       return res.status(422).json({
@@ -207,6 +214,13 @@ exports.requestOverride = async (req, res, next) => {
         .json({ success: false, message: 'Staff member not found', request_id: req.id });
 
     const locationId = primaryLocation(staff);
+    if (!locationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'This staff member is not assigned to a location yet.',
+        request_id: req.id,
+      });
+    }
     let availability = await Availability.findOne({ staffId, locationId });
     if (!availability) {
       availability = await Availability.create({ staffId, locationId, recurring: { slots: [] } });

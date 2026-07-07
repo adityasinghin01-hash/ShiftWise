@@ -92,6 +92,7 @@ const staffMemberSchema = new mongoose.Schema(
 // Compound indexes for hot query paths
 staffMemberSchema.index({ businessId: 1, isActive: 1 });
 staffMemberSchema.index({ businessId: 1, email: 1 }, { unique: true }); // one email per business
+staffMemberSchema.index({ businessId: 1, locationIds: 1 }); // staff-by-location (team views, scheduling)
 
 // Export badge types so other modules (controllers, seeds) can reference them
 staffMemberSchema.statics.BADGE_TYPES = BADGE_TYPES;

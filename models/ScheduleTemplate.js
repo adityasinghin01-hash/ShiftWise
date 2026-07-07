@@ -13,8 +13,9 @@ const templateShiftSchema = new mongoose.Schema(
   {
     dayOfWeek: { type: Number, required: true, min: 0, max: 6 }, // 0=Mon … 6=Sun
     shiftType: { type: String, default: 'custom' },
-    startTime: { type: String, required: true }, // 'HH:MM'
-    endTime: { type: String, required: true }, // 'HH:MM'
+    // Enforce 'HH:MM' (00:00–23:59) so malformed times can't reach the scheduler's parser.
+    startTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    endTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
     requiredCount: { type: Number, default: 1, min: 1 }, // how many staff needed for this slot
   },
   { _id: false }

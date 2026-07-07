@@ -65,7 +65,9 @@ const resolveBusiness = async (req, res, next) => {
 
     // ── 3. No business context ───────────────────────────────────
     // This can happen for platform admins or users who haven't completed onboarding.
-    logger.warn(`User ${req.user.id} has no business context on ${req.originalUrl}`);
+    // Strip CR/LF from the user-controlled URL before logging (prevents log forging / CWE-117).
+    const safeUrl = String(req.originalUrl).replace(/[\r\n]/g, '');
+    logger.warn(`User ${req.user.id} has no business context on ${safeUrl}`);
     return res.status(403).json({
       success: false,
       message: 'No business context found. Please complete onboarding.',

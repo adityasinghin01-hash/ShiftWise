@@ -43,6 +43,16 @@ exports.createBusiness = async (req, res, next) => {
 
     res.status(201).json({ success: true, data: business });
   } catch (err) {
+    // The findOne guard above can still lose a race between concurrent requests.
+    // The unique index on Business.ownerId is the real guarantee — map its
+    // duplicate-key error to the same 409 the app-level check returns.
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'You already own a business.',
+        request_id: req.id,
+      });
+    }
     logger.error('Error in createBusiness:', err);
     next(err);
   }

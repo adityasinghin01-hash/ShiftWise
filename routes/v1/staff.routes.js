@@ -27,12 +27,21 @@ const createStaffSchema = validate([
   body('maxHoursPerWeek').optional().isInt({ min: 0, max: 168 }),
 ]);
 
+// Bulk import: validate the request shape here; per-row name/email validation
+// happens in the controller so one bad row yields a per-row error instead of
+// rejecting the whole batch (partial-success import).
+const bulkStaffSchema = validate([
+  body('rows').isArray({ min: 1 }).withMessage('rows must be a non-empty array.'),
+  body('rows').isArray({ max: 200 }).withMessage('Cannot import more than 200 staff at once.'),
+  body('sendInvite').optional().isBoolean(),
+]);
+
 // All staff routes require auth + resolved business + owner role
 router.use(protect(), resolveBusiness, requireOwner);
 
 router.get('/', staffController.listStaff);
 router.post('/', createStaffSchema, staffController.createStaff);
-router.post('/bulk', staffController.bulkCreateStaff);
+router.post('/bulk', bulkStaffSchema, staffController.bulkCreateStaff);
 router.put('/:id', staffController.updateStaff);
 router.delete('/:id', staffController.deleteStaff);
 

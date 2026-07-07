@@ -11,11 +11,12 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema(
   {
     // The user who receives this notification (manager or staff)
+    // No single-field index here: the compound indexes below both lead with
+    // userId, so they already serve any userId-only query as a prefix.
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true,
     },
     businessId: {
       type: mongoose.Schema.Types.ObjectId,

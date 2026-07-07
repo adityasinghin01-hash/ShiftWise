@@ -17,11 +17,12 @@ const shiftSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // No single-field index: the compound { businessId: 1, date: 1 } below
+    // already covers businessId-only queries as its prefix.
     businessId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Business',
       required: true,
-      index: true,
     },
     locationId: {
       type: mongoose.Schema.Types.ObjectId,
