@@ -327,3 +327,193 @@ module.exports.AUTO_CLAIM_THRESHOLD = AUTO_CLAIM_THRESHOLD;
 // Manager may still override — but it requires a reason + is audit-logged (§6.7).
 const FAVORITISM_GAP = 25;
 module.exports.FAVORITISM_GAP = FAVORITISM_GAP;
+
+// ─────────────────────────────────────────────────────────
+// Generator core (§6.3) — pure, deterministic, DB-free.
+// generateSchedule() (the async DB wrapper, Phase 4.3) loads a Schedule,
+// builds these in-memory structures, calls the core, and maps back to Shifts.
+// ─────────────────────────────────────────────────────────
+
+/** True if a shift is "night": starts ≤ 06:00, ends ≥ 22:00, or crosses midnight. */
+function isNightShift(startTime, endTime) {
+  const s = timeToMinutes(startTime);
+  const e = timeToMinutes(endTime);
+  return s <= 360 || e >= 1320 || e <= s;
+}
+
+/** Hours in a slot, honoring midnight crossover. */
+function slotHours(slot) {
+  const { startAbs, endAbs } = shiftInterval(
+    new Date(slot.date).getTime(),
+    slot.startTime,
+    slot.endTime
+  );
+  return (endAbs - startAbs) / (60 * MINUTE_MS);
+}
+
+/**
+ * PHASE 1 — Slot generation.
+ * For each day × shiftType, create minStaffPerShift seats. roleCoverage seats
+ * (requiredRole set) are created first; the remainder are generic (role = null).
+ * @param {object} location - has settings.{shiftTypes, minStaffPerShift, roleCoverage}
+ * @param {Date[]} weekDates - 7 dates, index = dayOfWeek (0=Mon … 6=Sun)
+ * @returns {Array} slot objects with assignedStaffId = null
+ */
+function generateSlots(location, weekDates) {
+  const settings = (location && location.settings) || {};
+  const shiftTypes = settings.shiftTypes || [];
+  const minStaff = settings.minStaffPerShift || 1;
+  const roleCoverage = settings.roleCoverage || [];
+  const slots = [];
+
+  weekDates.forEach((date, dayOfWeek) => {
+    const dateISO = new Date(date).toISOString().slice(0, 10);
+    const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sat, Sun (0 = Mon)
+
+    shiftTypes.forEach((st, shiftOrder) => {
+      const isNight = isNightShift(st.startTime, st.endTime);
+      let seat = 0;
+      const make = (requiredRole) => {
+        slots.push({
+          id: `${dateISO}_${st.name}_${seat}`,
+          date,
+          dayOfWeek,
+          shiftType: st.name,
+          startTime: st.startTime,
+          endTime: st.endTime,
+          isWeekend,
+          isNight,
+          requiredRole: requiredRole || null,
+          assignedStaffId: null,
+          shiftOrder,
+          seat: seat++,
+        });
+      };
+
+      // Role-typed seats first…
+      const typedCount = roleCoverage.reduce((n, rc) => n + (rc.min || 0), 0);
+      roleCoverage.forEach((rc) => {
+        for (let k = 0; k < (rc.min || 0); k++) make(rc.role);
+      });
+      // …then generic seats up to minStaffPerShift.
+      for (let k = 0; k < Math.max(minStaff - typedCount, 0); k++) make(null);
+    });
+  });
+
+  return slots;
+}
+module.exports.generateSlots = generateSlots;
+
+/** Record an assignment on a StaffState and stamp the slot. Updates fairness totals. */
+function applyAssignment(ss, slot) {
+  const hrs = slotHours(slot);
+  ss.assignedShifts.push({ date: slot.date, startTime: slot.startTime, endTime: slot.endTime });
+  ss.hoursAssigned += hrs;
+  if (slot.isWeekend) ss.weekendHoursAssigned += hrs;
+  if (slot.isNight) ss.nightHoursAssigned += hrs;
+  // Totals (history + this run) drive fairnessScore.
+  ss.totalHoursAll = (ss.histTotalHours || 0) + ss.hoursAssigned;
+  ss.totalWeekendHours = (ss.histWeekendHours || 0) + ss.weekendHoursAssigned;
+  ss.totalNightHours = (ss.histNightHours || 0) + ss.nightHoursAssigned;
+  slot.assignedStaffId = ss.staffId;
+}
+
+/** Deterministic slot order: date → configured shiftType order → seat index. */
+function slotOrder(a, b) {
+  return (
+    new Date(a.date) - new Date(b.date) ||
+    (a.shiftOrder || 0) - (b.shiftOrder || 0) ||
+    (a.seat || 0) - (b.seat || 0)
+  );
+}
+
+/** Schedule fairness % (§6.5): 100 = unpopular (weekend+night) hours evenly spread. */
+function computeFairnessPercent(staffStates) {
+  const shares = [...staffStates.values()].map(
+    (ss) => (ss.weekendHoursAssigned || 0) + (ss.nightHoursAssigned || 0)
+  );
+  if (shares.length <= 1) return 100;
+  const mean = shares.reduce((a, b) => a + b, 0) / shares.length;
+  const variance = shares.reduce((a, b) => a + (b - mean) ** 2, 0) / shares.length;
+  const stddev = Math.sqrt(variance);
+  const SCALE = 10; // tunable — larger penalizes uneven distribution harder
+  return Math.round(Math.max(0, 100 - Math.min(100, stddev * SCALE)));
+}
+
+/**
+ * PHASES 2–5 — assign staff to slots on a prepared context. Mutates ctx.slots
+ * (sets assignedStaffId) and the StaffStates. Deterministic: identical ctx in →
+ * identical assignment out (fixed tiebreak, no randomness).
+ *
+ * Legal-by-construction: every placement passes checkAssignment first, so the
+ * result never contains a HARD violation — unfilled seats surface as UNDERSTAFFED
+ * conflicts instead of illegal assignments (satisfies "never return an illegal
+ * schedule silently"). Full backtracking (§6.3 phase 5) is unnecessary here
+ * because the greedy pass never commits a hard-violating assignment.
+ *
+ * @param {object} ctx - { rules, slots, staffStates:Map, avg*Hours }
+ * @returns {{ conflicts: Array, fairnessScore: number }}
+ */
+function assignSlots(ctx) {
+  const staffStates = ctx.staffStates;
+  const conflicts = [];
+
+  // Init run counters + fairness totals for every staff state.
+  for (const ss of staffStates.values()) {
+    ss.assignedShifts = ss.assignedShifts || [];
+    ss.hoursAssigned = ss.hoursAssigned || 0;
+    ss.weekendHoursAssigned = ss.weekendHoursAssigned || 0;
+    ss.nightHoursAssigned = ss.nightHoursAssigned || 0;
+    ss.totalHoursAll = (ss.histTotalHours || 0) + ss.hoursAssigned;
+    ss.totalWeekendHours = (ss.histWeekendHours || 0) + ss.weekendHoursAssigned;
+    ss.totalNightHours = (ss.histNightHours || 0) + ss.nightHoursAssigned;
+  }
+
+  // PHASE 2 — pre-apply locked / already-assigned seats (immovable).
+  for (const slot of ctx.slots) {
+    if (slot.assignedStaffId) {
+      const ss = staffStates.get(String(slot.assignedStaffId));
+      if (ss) applyAssignment(ss, slot);
+    }
+  }
+
+  // PHASES 3–4 — eligibility + fairness scoring, then greedy assignment.
+  const emptySlots = ctx.slots.filter((s) => !s.assignedStaffId).sort(slotOrder);
+  for (const slot of emptySlots) {
+    const candidates = [];
+    for (const ss of staffStates.values()) {
+      const verdict = checkAssignment(ss, slot, ctx);
+      if (verdict.hard.length === 0) {
+        candidates.push({ ss, score: fairnessScore(ss, slot, ctx), soft: verdict.soft.length });
+      }
+    }
+    if (candidates.length === 0) {
+      conflicts.push({
+        type: 'UNDERSTAFFED',
+        slot: { date: slot.date, shiftType: slot.shiftType, requiredRole: slot.requiredRole },
+        reason: 'No eligible staff for this slot.',
+      });
+      continue;
+    }
+    // Deterministic pick: highest fairness, then fewest soft warnings, then staffId.
+    candidates.sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.soft - b.soft ||
+        String(a.ss.staffId).localeCompare(String(b.ss.staffId))
+    );
+    const pick = candidates[0];
+    applyAssignment(pick.ss, slot);
+    if (pick.soft > 0) {
+      conflicts.push({
+        type: 'WARNING',
+        slot: { date: slot.date, shiftType: slot.shiftType },
+        staffId: pick.ss.staffId,
+        reason: 'Assigned with a soft-rule warning (e.g. over weekly hours).',
+      });
+    }
+  }
+
+  return { conflicts, fairnessScore: computeFairnessPercent(staffStates) };
+}
+module.exports.assignSlots = assignSlots;

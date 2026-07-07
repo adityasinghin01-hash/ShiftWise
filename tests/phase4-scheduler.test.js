@@ -8,6 +8,8 @@ const {
   checkAssignment,
   fairnessScore,
   reliabilityScore,
+  generateSlots,
+  assignSlots,
   HARD,
   SOFT,
   AUTO_CLAIM_THRESHOLD,
@@ -254,5 +256,181 @@ describe('reliabilityScore — §6.6', () => {
     // 100 → 80 stays above 70; two no-shows → 60 is below the gate.
     expect(reliabilityScore({ noShows: 1 })).toBeGreaterThanOrEqual(AUTO_CLAIM_THRESHOLD);
     expect(reliabilityScore({ noShows: 2 })).toBeLessThan(AUTO_CLAIM_THRESHOLD);
+  });
+});
+
+// ── Generator (§6.3) helpers ──────────────────────────────
+function availAllDays() {
+  const m = new Map();
+  for (let d = 0; d <= 6; d++) m.set(d, { available: true });
+  return m;
+}
+function makeSS(id, over = {}) {
+  return {
+    staffId: id,
+    name: id,
+    role: 'staff',
+    maxHoursPerWeek: 0,
+    manuallyManaged: false,
+    availabilityIndex: availAllDays(),
+    timeOffDays: new Set(),
+    incompatibleWith: new Set(),
+    assignedShifts: [],
+    hoursAssigned: 0,
+    weekendHoursAssigned: 0,
+    nightHoursAssigned: 0,
+    histWeekendHours: 0,
+    histNightHours: 0,
+    histTotalHours: 0,
+    timeOffRequestedCount: 0,
+    ...over,
+  };
+}
+// 7 dates starting at a Monday (UTC). 2026-07-06 is a Monday.
+function weekDates(mondayISO = '2026-07-06') {
+  const base = new Date(`${mondayISO}T00:00:00Z`).getTime();
+  return Array.from({ length: 7 }, (_, d) => new Date(base + d * 24 * 3600 * 1000));
+}
+function makeLocation(over = {}) {
+  return {
+    settings: {
+      shiftTypes: [{ name: 'morning', startTime: '09:00', endTime: '17:00' }],
+      minStaffPerShift: 1,
+      roleCoverage: [],
+      ...over,
+    },
+  };
+}
+function ctxFor(slots, staffList, over = {}) {
+  return {
+    rules: {},
+    slots,
+    staffStates: new Map(staffList.map((s) => [s.staffId, s])),
+    avgWeekendHours: 0,
+    avgNightHours: 0,
+    avgTotalHours: 0,
+    ...over,
+  };
+}
+const understaffed = (conflicts) => conflicts.filter((c) => c.type === 'UNDERSTAFFED');
+
+describe('generateSlots — §6.3 Phase 1', () => {
+  test('creates minStaffPerShift seats per day × shiftType', () => {
+    const loc = makeLocation({
+      shiftTypes: [
+        { name: 'morning', startTime: '09:00', endTime: '17:00' },
+        { name: 'evening', startTime: '17:00', endTime: '23:00' },
+      ],
+      minStaffPerShift: 2,
+    });
+    const slots = generateSlots(loc, weekDates());
+    expect(slots).toHaveLength(7 * 2 * 2); // 7 days × 2 shiftTypes × 2 seats
+    expect(slots.filter((s) => s.isWeekend)).toHaveLength(2 * 2 * 2); // Sat+Sun
+  });
+
+  test('role-coverage seats are created and tagged with requiredRole', () => {
+    const loc = makeLocation({
+      minStaffPerShift: 2,
+      roleCoverage: [{ role: 'supervisor', min: 1 }],
+    });
+    const daySlots = generateSlots(loc, weekDates()).filter((s) => s.dayOfWeek === 0);
+    expect(daySlots.filter((s) => s.requiredRole === 'supervisor')).toHaveLength(1);
+    expect(daySlots.filter((s) => s.requiredRole === null)).toHaveLength(1);
+  });
+});
+
+describe('assignSlots — §6.3 Phases 2–5', () => {
+  test('fills every seat when staff are plentiful (no understaffing)', () => {
+    const slots = generateSlots(makeLocation(), weekDates()); // 7 seats
+    const ctx = ctxFor(slots, [makeSS('a'), makeSS('b'), makeSS('c')]);
+    const { conflicts } = assignSlots(ctx);
+    expect(slots.every((s) => s.assignedStaffId)).toBe(true);
+    expect(understaffed(conflicts)).toHaveLength(0);
+  });
+
+  test('reports UNDERSTAFFED (never a hard violation) when nobody is eligible', () => {
+    const slots = generateSlots(makeLocation(), weekDates());
+    const noAvail = makeSS('a', { availabilityIndex: new Map() }); // available no day
+    const { conflicts } = assignSlots(ctxFor(slots, [noAvail]));
+    expect(slots.some((s) => s.assignedStaffId)).toBe(false);
+    expect(understaffed(conflicts)).toHaveLength(slots.length);
+  });
+
+  test('never double-books: a lone staffer cannot fill two seats of the same shift', () => {
+    const slots = generateSlots(makeLocation({ minStaffPerShift: 2 }), weekDates()); // 14 seats, 2/day
+    const { conflicts } = assignSlots(ctxFor(slots, [makeSS('solo')]));
+    // Each day: seat 1 filled, seat 2 understaffed (same person would overlap).
+    expect(slots.filter((s) => s.assignedStaffId === 'solo')).toHaveLength(7);
+    expect(understaffed(conflicts)).toHaveLength(7);
+  });
+
+  test('locked / pre-assigned seats are preserved', () => {
+    const slots = generateSlots(makeLocation(), weekDates());
+    slots[0].assignedStaffId = 'locked-guy';
+    const ctx = ctxFor(slots, [makeSS('locked-guy'), makeSS('other')]);
+    assignSlots(ctx);
+    expect(slots[0].assignedStaffId).toBe('locked-guy');
+  });
+
+  test('approved time-off is never scheduled', () => {
+    const slots = generateSlots(makeLocation(), weekDates());
+    const monday = slots.find((s) => s.dayOfWeek === 0);
+    const offStaff = makeSS('off', { timeOffDays: new Set(['2026-07-06']) }); // Monday
+    const ctx = ctxFor(slots, [offStaff, makeSS('free')]);
+    assignSlots(ctx);
+    expect(monday.assignedStaffId).not.toBe('off');
+  });
+
+  test('incompatible pair is never co-assigned to the same shift', () => {
+    const slots = generateSlots(makeLocation({ minStaffPerShift: 2 }), weekDates());
+    const x = makeSS('x', { incompatibleWith: new Set(['y']) });
+    const y = makeSS('y', { incompatibleWith: new Set(['x']) });
+    const z = makeSS('z'); // compatible filler
+    assignSlots(ctxFor(slots, [x, y, z]));
+    // For each day, the two seats must not be x+y together.
+    for (let d = 0; d <= 6; d++) {
+      const seatIds = slots.filter((s) => s.dayOfWeek === d).map((s) => s.assignedStaffId);
+      expect(seatIds.includes('x') && seatIds.includes('y')).toBe(false);
+    }
+  });
+
+  test('a weekend/night slot goes to the most-owed (below-average) staff', () => {
+    const sat = new Date('2026-07-11T00:00:00Z'); // Saturday
+    const slot = {
+      id: 'w1',
+      date: sat,
+      dayOfWeek: 5,
+      shiftType: 'evening',
+      startTime: '18:00',
+      endTime: '23:00',
+      isWeekend: true,
+      isNight: true,
+      requiredRole: null,
+      assignedStaffId: null,
+      shiftOrder: 0,
+      seat: 0,
+    };
+    const overworked = makeSS('over', {
+      histWeekendHours: 20,
+      histNightHours: 20,
+      histTotalHours: 40,
+    });
+    const owed = makeSS('owed', { histWeekendHours: 0, histNightHours: 0, histTotalHours: 0 });
+    const ctx = ctxFor([slot], [overworked, owed], {
+      avgWeekendHours: 10,
+      avgNightHours: 10,
+      avgTotalHours: 20,
+    });
+    assignSlots(ctx);
+    expect(slot.assignedStaffId).toBe('owed');
+  });
+
+  test('is deterministic — identical input yields identical assignment', () => {
+    const run = () => {
+      const slots = generateSlots(makeLocation({ minStaffPerShift: 2 }), weekDates());
+      assignSlots(ctxFor(slots, [makeSS('a'), makeSS('b'), makeSS('c')]));
+      return slots.map((s) => `${s.id}:${s.assignedStaffId}`).join('|');
+    };
+    expect(run()).toBe(run());
   });
 });
