@@ -25,6 +25,8 @@ const availabilityRoutes = require('./availability.routes');
 const scheduleRoutes = require('./schedules.routes');
 const shiftRoutes = require('./shifts.routes');
 const templateRoutes = require('./templates.routes');
+const timeoffRoutes = require('./timeoff.routes');
+const swapRoutes = require('./swaps.routes');
 
 // ── Auth ─────────────────────────────────────────────────
 router.use('/', authRoutes);
@@ -76,5 +78,9 @@ router.use('/shifts', shiftRoutes);
 
 // ── ShiftWise: Templates (Phase 4) ───────────────────────
 router.use('/templates', templateRoutes);
+
+// ── ShiftWise: Time-off + Swaps (Phase 5) ────────────────
+router.use('/', timeoffRoutes);
+router.use('/swaps', swapRoutes);
 
 module.exports = router;

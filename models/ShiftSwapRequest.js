@@ -72,11 +72,11 @@ shiftSwapRequestSchema.index({ requesterStaffId: 1 });
 
 // A targeted swap must name its target; open-board swaps must not require one.
 // Enforced at the model layer so no write path can persist an invalid targeted swap.
-shiftSwapRequestSchema.pre('validate', function (next) {
+// Sync hook (no next callback) — invalidate() is synchronous and version-safe.
+shiftSwapRequestSchema.pre('validate', function () {
   if (this.mode === 'targeted' && !this.targetStaffId) {
     this.invalidate('targetStaffId', 'targetStaffId is required when mode is "targeted"');
   }
-  next();
 });
 
 const ShiftSwapRequest = mongoose.model('ShiftSwapRequest', shiftSwapRequestSchema);
