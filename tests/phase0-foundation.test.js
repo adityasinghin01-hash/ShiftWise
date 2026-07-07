@@ -423,8 +423,26 @@ describe('schedulerService exports', () => {
     expect(FAVORITISM_GAP).toBe(25);
   });
 
-  it('checkAssignment stub returns no violations', () => {
-    const result = checkAssignment({}, {}, {});
+  it('checkAssignment returns no violations for a clean, unconstrained assignment', () => {
+    const availabilityIndex = new Map([[0, { available: true }]]);
+    const staff = {
+      name: 'Test',
+      role: 'staff',
+      availabilityIndex,
+      timeOffDays: new Set(),
+      incompatibleWith: new Set(),
+      assignedShifts: [],
+      hoursAssigned: 0,
+      maxHoursPerWeek: 0,
+    };
+    const slot = {
+      date: new Date('2026-07-06T00:00:00Z'),
+      dayOfWeek: 0,
+      shiftType: 'morning',
+      startTime: '09:00',
+      endTime: '17:00',
+    };
+    const result = checkAssignment(staff, slot, { rules: {}, slots: [] });
     expect(result.hard).toHaveLength(0);
     expect(result.soft).toHaveLength(0);
   });
@@ -460,7 +478,7 @@ describe('reliabilityScore', () => {
     expect(reliabilityScore({ noShows: 0, lateArrivals: 0, coversCompleted: 50 })).toBe(100);
   });
 
-  it('combined: 1 no-show, 2 late, 1 cover = 77', () => {
+  it('combined: 1 no-show, 2 late, 1 cover = 73', () => {
     // 100 - 20*1 - 5*2 + 3*1 = 100 - 20 - 10 + 3 = 73
     expect(reliabilityScore({ noShows: 1, lateArrivals: 2, coversCompleted: 1 })).toBe(73);
   });

@@ -37,6 +37,32 @@ const SOFT = {
 module.exports.HARD = HARD;
 module.exports.SOFT = SOFT;
 
+// ── Time helpers ──────────────────────────────────────────
+// Shifts store 'HH:MM' strings + a UTC-midnight date. To compare/overlap them
+// we project onto an absolute millisecond timeline. Night shifts that cross
+// midnight (end <= start, e.g. 22:00–02:00) roll the end into the next day.
+const MINUTE_MS = 60 * 1000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
+
+/** 'HH:MM' → minutes since 00:00. */
+function timeToMinutes(hhmm) {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** Absolute [start, end) ms interval for a shift, handling midnight crossover. */
+function shiftInterval(dateMs, startTime, endTime) {
+  const startMin = timeToMinutes(startTime);
+  let endMin = timeToMinutes(endTime);
+  if (endMin <= startMin) endMin += 1440; // crosses midnight → next day
+  return { startAbs: dateMs + startMin * MINUTE_MS, endAbs: dateMs + endMin * MINUTE_MS };
+}
+
+/** Integer day index (UTC) — for consecutive-day runs and same-day checks. */
+function dayIndex(dateMs) {
+  return Math.floor(dateMs / DAY_MS);
+}
+
 // ─────────────────────────────────────────────────────────
 // checkAssignment
 // ─────────────────────────────────────────────────────────
@@ -51,13 +77,150 @@ module.exports.SOFT = SOFT;
  * @param {object} ctx          — GenerationContext (§6.1)
  * @returns {{ hard: Array<{code,message}>, soft: Array<{code,message}> }}
  *
- * Phase 4 will flesh out all rule checks. Stub returns empty for now
- * so Phase 0 tests can import and call the function without crashing.
+ * Implements all 7 HARD rules (§6.2) + the OVER_HOURS SOFT warning. Any rule
+ * whose config value is 0/null/[] is treated as "not enforced" and skipped.
  */
-const checkAssignment = (_staffState, _slot, _ctx) => {
-  // §6.2 — TODO (Phase 4): implement all HARD and SOFT rule checks.
-  // Stub returns clean (no violations) so model/middleware tests pass.
-  return { hard: [], soft: [] };
+const checkAssignment = (staffState, slot, ctx) => {
+  const hard = [];
+  const soft = [];
+  const rules = (ctx && ctx.rules) || {};
+  const ss = staffState || {};
+  const dateMs = new Date(slot.date).getTime();
+  // A real slot always carries a valid date; this guard just keeps degenerate
+  // input from crashing (toISOString) or looping (the consecutive-day scan).
+  const hasDate = !Number.isNaN(dateMs);
+  const cand = shiftInterval(dateMs, slot.startTime, slot.endTime);
+
+  // ── HARD 1: UNAVAILABLE ──────────────────────────────────
+  // Not available that weekday, or the shift falls outside their stated window.
+  const avail = ss.availabilityIndex && ss.availabilityIndex.get(slot.dayOfWeek);
+  if (!avail || avail.available === false) {
+    hard.push({
+      code: HARD.UNAVAILABLE,
+      message: `${ss.name || 'Staff'} is not available on this day.`,
+    });
+  } else if (avail.start && avail.end) {
+    // Optional preferred window — enforce only when both bounds are set.
+    const slotStart = timeToMinutes(slot.startTime);
+    let slotEnd = timeToMinutes(slot.endTime);
+    if (slotEnd <= slotStart) slotEnd += 1440;
+    const winStart = timeToMinutes(avail.start);
+    let winEnd = timeToMinutes(avail.end);
+    if (winEnd <= winStart) winEnd += 1440;
+    if (slotStart < winStart || slotEnd > winEnd) {
+      hard.push({
+        code: HARD.UNAVAILABLE,
+        message: `Shift time is outside ${ss.name || 'staff'}'s available window.`,
+      });
+    }
+  }
+
+  // ── HARD 2: TIME_OFF ─────────────────────────────────────
+  const dateISO = hasDate ? new Date(dateMs).toISOString().slice(0, 10) : null;
+  if (dateISO && ss.timeOffDays && ss.timeOffDays.has(dateISO)) {
+    hard.push({
+      code: HARD.TIME_OFF,
+      message: `${ss.name || 'Staff'} has approved time off on this date.`,
+    });
+  }
+
+  // ── HARD 3 (DOUBLE_BOOKED) + HARD 5 (REST_VIOLATION) ─────
+  // One pass over already-assigned shifts. Overlap implies no rest, so we don't
+  // double-report the same pair. Each code is reported at most once.
+  const minRestMin = (rules.minRestHours || 0) * 60;
+  let doubleBooked = false;
+  let restViolation = false;
+  for (const a of ss.assignedShifts || []) {
+    const aMs = new Date(a.date).getTime();
+    const ai = shiftInterval(aMs, a.startTime, a.endTime);
+    const overlaps = cand.startAbs < ai.endAbs && ai.startAbs < cand.endAbs;
+    if (overlaps) {
+      doubleBooked = true;
+      continue;
+    }
+    if (minRestMin > 0) {
+      const gapMin =
+        cand.startAbs >= ai.endAbs
+          ? (cand.startAbs - ai.endAbs) / MINUTE_MS
+          : (ai.startAbs - cand.endAbs) / MINUTE_MS;
+      if (gapMin < minRestMin) restViolation = true;
+    }
+  }
+  if (doubleBooked) {
+    hard.push({ code: HARD.DOUBLE_BOOKED, message: 'Overlaps a shift already assigned that day.' });
+  }
+  if (restViolation) {
+    hard.push({
+      code: HARD.REST_VIOLATION,
+      message: `Less than ${rules.minRestHours}h rest from another shift.`,
+    });
+  }
+
+  // ── HARD 4: INCOMPATIBLE_PAIR ────────────────────────────
+  // A peer working the same day + shiftType who is on this staff's incompatible list.
+  if (
+    hasDate &&
+    ss.incompatibleWith &&
+    ss.incompatibleWith.size &&
+    Array.isArray(ctx && ctx.slots)
+  ) {
+    const candDay = dayIndex(dateMs);
+    const clash = ctx.slots.some(
+      (other) =>
+        other !== slot &&
+        other.assignedStaffId &&
+        other.shiftType === slot.shiftType &&
+        dayIndex(new Date(other.date).getTime()) === candDay &&
+        ss.incompatibleWith.has(String(other.assignedStaffId))
+    );
+    if (clash) {
+      hard.push({
+        code: HARD.INCOMPATIBLE_PAIR,
+        message: 'Assigned alongside an incompatible teammate.',
+      });
+    }
+  }
+
+  // ── HARD 6: MAX_CONSECUTIVE ──────────────────────────────
+  if (hasDate && (rules.maxDaysConsecutive || 0) > 0) {
+    const days = new Set(
+      (ss.assignedShifts || []).map((a) => dayIndex(new Date(a.date).getTime()))
+    );
+    const candDay = dayIndex(dateMs);
+    days.add(candDay);
+    let run = 1;
+    for (let d = candDay - 1; days.has(d); d--) run++;
+    for (let d = candDay + 1; days.has(d); d++) run++;
+    if (run > rules.maxDaysConsecutive) {
+      hard.push({
+        code: HARD.MAX_CONSECUTIVE,
+        message: `Would exceed ${rules.maxDaysConsecutive} consecutive working days.`,
+      });
+    }
+  }
+
+  // ── HARD 7: ROLE_MISMATCH ────────────────────────────────
+  if (slot.requiredRole && ss.role !== slot.requiredRole) {
+    hard.push({
+      code: HARD.ROLE_MISMATCH,
+      message: `This slot needs role "${slot.requiredRole}".`,
+    });
+  }
+
+  // ── SOFT: OVER_HOURS ─────────────────────────────────────
+  // Cap = the tighter of staff.maxHoursPerWeek and rules.maxHoursPerWeek.
+  // A 0/null value means "no cap" (rule not enforced), per §6.1 optionality.
+  const staffCap = ss.maxHoursPerWeek || Infinity;
+  const ruleCap = rules.maxHoursPerWeek || Infinity;
+  const cap = Math.min(staffCap, ruleCap);
+  if (cap !== Infinity) {
+    const shiftHours = (cand.endAbs - cand.startAbs) / (60 * MINUTE_MS);
+    if ((ss.hoursAssigned || 0) + shiftHours > cap) {
+      soft.push({ code: SOFT.OVER_HOURS, message: `Would exceed ${cap}h this week.` });
+    }
+  }
+
+  return { hard, soft };
 };
 module.exports.checkAssignment = checkAssignment;
 
@@ -105,9 +268,23 @@ module.exports.generateSchedule = generateSchedule;
  *
  * Phase 4 will implement the full formula. Stub returns 0.
  */
-const fairnessScore = (_staffState, _slot, _ctx) => {
-  // §6.4 — TODO (Phase 4): implement full fairness formula.
-  return 0;
+const fairnessScore = (staffState, slot, ctx) => {
+  const ss = staffState || {};
+  const c = ctx || {};
+  // "Owed" = how far below the team average this person is on each dimension.
+  // Higher score → assigned first. Weekend/night carry extra weight so the
+  // least-burdened staff pick up the unpopular shifts first.
+  const owedWeekend = (c.avgWeekendHours || 0) - (ss.totalWeekendHours || 0);
+  const owedNight = (c.avgNightHours || 0) - (ss.totalNightHours || 0);
+  const owedTotal = (c.avgTotalHours || 0) - (ss.totalHoursAll || 0);
+
+  let base =
+    owedWeekend * 2.0 + owedNight * 1.5 + owedTotal * 1.0 + (ss.timeOffRequestedCount || 0) * -0.5;
+
+  if (slot && slot.isWeekend) base += owedWeekend * 1.0;
+  if (slot && slot.isNight) base += owedNight * 0.75;
+
+  return base;
 };
 module.exports.fairnessScore = fairnessScore;
 
