@@ -211,19 +211,24 @@ function gridHTML(dates) {
     .map((d, i) => `<th style="min-width:110px">${DAYS[i]}<br><span class="text-muted" style="font-weight:400;font-size:0.72rem">${d.getUTCDate()}</span></th>`)
     .join('')}</tr>`;
 
-  // Editable only while it's a draft with no pending preview. A published
-  // schedule (or an un-accepted preview) is read-only.
-  const editable = schedule?.status !== 'published' && !preview;
+  // Draft (no preview) = editable (add/remove). Published (no preview) = the
+  // day-of view where chips trigger mark-absent → cover. A preview is read-only.
+  const published = schedule?.status === 'published';
+  const editable = !published && !preview;
+  const clickable = !preview;
 
   const rows = staff
     .map((s) => {
       const cells = dates
         .map((d) => {
           const chips = cellShifts(s._id, d)
-            .map(
-              (sh) =>
-                `<span class="badge badge-green" data-shift="${sh._id || ''}" style="display:block;margin:2px 0;cursor:${editable ? 'pointer' : 'default'}" title="${editable ? 'Click to remove' : ''}">${esc(sh.startTime)}–${esc(sh.endTime)}</span>`
-            )
+            .map((sh) => {
+              const cls =
+                sh.status === 'absent' ? 'badge-amber' : sh.status === 'covered' ? 'badge-muted' : 'badge-green';
+              const suffix = sh.status === 'absent' ? ' ⚠' : sh.status === 'covered' ? ' ✓' : '';
+              const title = !clickable ? '' : published ? 'Click: mark absent / cover' : 'Click to remove';
+              return `<span class="badge ${cls}" data-shift="${sh._id || ''}" style="display:block;margin:2px 0;cursor:${clickable ? 'pointer' : 'default'}" title="${title}">${esc(sh.startTime)}–${esc(sh.endTime)}${suffix}</span>`;
+            })
             .join('');
           const addBtn = !editable
             ? ''
@@ -240,27 +245,82 @@ function gridHTML(dates) {
 }
 
 function wireCells(dates) {
-  // Read-only while a preview is pending or the schedule is published.
-  if (preview || schedule?.status === 'published') return;
-  // Remove a shift on chip click
+  if (preview) return; // preview is read-only until accepted/discarded
+  const published = schedule?.status === 'published';
+
+  // Chip click: draft → remove the shift; published → mark absent + find cover.
   document.querySelectorAll('[data-shift]').forEach((chip) => {
-    chip.addEventListener('click', async () => {
-      const id = chip.getAttribute('data-shift');
-      if (!id || schedule.status === 'published') return;
-      if (!confirm('Remove this shift?')) return;
-      try {
-        await shiftApi.remove(id);
-        shifts = shifts.filter((s) => String(s._id) !== String(id));
-        render();
-      } catch (err) {
-        toast(err.message || 'Could not remove shift', 'error');
-      }
+    const id = chip.getAttribute('data-shift');
+    if (!id) return;
+    chip.addEventListener('click', () => (published ? markAbsentFlow(id) : removeShift(id)));
+  });
+
+  // "+" to add a shift (draft only).
+  if (!published) {
+    document.querySelectorAll('.cell-add').forEach((btn) => {
+      btn.addEventListener('click', () =>
+        openAddShift(btn.getAttribute('data-staff'), btn.getAttribute('data-date'), dates)
+      );
     });
-  });
-  // Add a shift on "+" click
-  document.querySelectorAll('.cell-add').forEach((btn) => {
-    btn.addEventListener('click', () => openAddShift(btn.getAttribute('data-staff'), btn.getAttribute('data-date'), dates));
-  });
+  }
+}
+
+async function removeShift(id) {
+  if (!confirm('Remove this shift?')) return;
+  try {
+    await shiftApi.remove(id);
+    shifts = shifts.filter((s) => String(s._id) !== String(id));
+    render();
+  } catch (err) {
+    toast(err.message || 'Could not remove shift', 'error');
+  }
+}
+
+/** Published-schedule day-of flow: mark a shift absent, then pick a cover. */
+async function markAbsentFlow(shiftId) {
+  if (!confirm('Mark this shift absent and find cover?')) return;
+  let candidates;
+  try {
+    const res = await shiftApi.markAbsent(shiftId);
+    candidates = res.data.candidates || [];
+    const s = shifts.find((x) => String(x._id) === String(shiftId));
+    if (s) s.status = 'absent';
+  } catch (err) {
+    return toast(err.message || 'Could not mark absent', 'error');
+  }
+  if (!candidates.length) {
+    render();
+    return toast('Marked absent — no eligible staff can cover this shift.', 'warning');
+  }
+  const opts = candidates
+    .map((c, i) => `${i + 1}) ${c.name} — reliability ${c.reliabilityScore}${c.canAutoClaim ? '' : ' ⚠ below gate'}`)
+    .join('\n');
+  const pick = prompt(`Marked absent. Pick a cover:\n${opts}\n\nEnter 1–${candidates.length}:`, '1');
+  render();
+  if (!pick) return;
+  const chosen = candidates[Number(pick) - 1];
+  if (chosen) assignCoverFlow(shiftId, chosen.staffId);
+}
+
+async function assignCoverFlow(shiftId, staffId, overrideReason) {
+  try {
+    await shiftApi.assignCover(shiftId, { staffId, overrideReason });
+    const s = shifts.find((x) => String(x._id) === String(shiftId));
+    if (s) {
+      s.status = 'covered';
+      s.coveredBy = staffId;
+    }
+    toast('Cover assigned ✓', 'success');
+    render();
+  } catch (err) {
+    // Reliability gate / anti-favoritism → backend asks for a reason.
+    if (err.data?.code === 'override_required') {
+      const reason = prompt(`${err.message}\n\nEnter a reason to override:`);
+      if (reason) return assignCoverFlow(shiftId, staffId, reason);
+      return;
+    }
+    toast(err.message || 'Could not assign cover', 'error');
+  }
 }
 
 function locationShiftTypes() {

@@ -236,4 +236,6 @@ export const shiftApi = {
   update: (id, body) => request(`/shifts/${id}`, { method: 'PUT', body }),
   remove: (id) => request(`/shifts/${id}`, { method: 'DELETE' }),
   attendance: (id, status) => request(`/shifts/${id}/attendance`, { method: 'POST', body: { status } }),
+  markAbsent: (id) => request(`/shifts/${id}/absent`, { method: 'POST', body: {} }),
+  assignCover: (id, body) => request(`/shifts/${id}/cover/assign`, { method: 'POST', body }),
 };

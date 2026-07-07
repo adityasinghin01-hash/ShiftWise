@@ -10,6 +10,7 @@
 
 const Schedule = require('../models/Schedule');
 const Shift = require('../models/Shift');
+const AuditLog = require('../models/AuditLog');
 const scheduler = require('../services/schedulerService');
 const { toShiftEnum } = require('../utils/shiftType');
 const logger = require('../config/logger');
@@ -188,6 +189,99 @@ exports.markAttendance = async (req, res, next) => {
     res.status(200).json({ success: true, data: shift });
   } catch (err) {
     logger.error('Error in markAttendance:', err);
+    next(err);
+  }
+};
+
+/**
+ * @route   POST /api/v1/shifts/:id/absent
+ * @desc    Mark a shift absent and return ranked cover candidates (§6.7).
+ * @access  Private (owner)
+ */
+exports.markAbsent = async (req, res, next) => {
+  try {
+    const shift = await Shift.findOne({ _id: req.params.id, businessId: req.business._id });
+    if (!shift) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Shift not found.', request_id: req.id });
+    }
+    shift.status = 'absent';
+    await shift.save();
+    const candidates = await scheduler.coverCandidates(shift);
+    res.status(200).json({ success: true, data: { shift, candidates } });
+  } catch (err) {
+    logger.error('Error in markAbsent:', err);
+    next(err);
+  }
+};
+
+/**
+ * @route   POST /api/v1/shifts/:id/cover/assign
+ * @desc    Assign a cover for an absent shift. Enforces the reliability gate +
+ *          25-pt anti-favoritism rule (§6.7): if the manager's pick is far below
+ *          the top eligible volunteer, OR below the auto-claim threshold, an
+ *          overrideReason is required and the override is audit-logged.
+ * @access  Private (owner)
+ */
+exports.assignCover = async (req, res, next) => {
+  try {
+    const { staffId, overrideReason } = req.body;
+    const shift = await Shift.findOne({ _id: req.params.id, businessId: req.business._id });
+    if (!shift) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Shift not found.', request_id: req.id });
+    }
+
+    const candidates = await scheduler.coverCandidates(shift);
+    const chosen = candidates.find((c) => String(c.staffId) === String(staffId));
+    if (!chosen) {
+      return res.status(422).json({
+        success: false,
+        message: 'That staff member cannot cover this shift (fails a hard rule or not eligible).',
+        request_id: req.id,
+      });
+    }
+
+    const top = candidates[0];
+    const favoritism =
+      top && top.reliabilityScore - chosen.reliabilityScore > scheduler.FAVORITISM_GAP;
+    const belowGate = !chosen.canAutoClaim;
+    const needsOverride = favoritism || belowGate;
+
+    if (needsOverride && !overrideReason) {
+      return res.status(422).json({
+        success: false,
+        code: 'override_required',
+        message: favoritism
+          ? 'A more reliable volunteer is available — a reason is required to override.'
+          : 'This staff member is below the auto-cover reliability threshold — a reason is required.',
+        data: { recommended: top, chosen },
+        request_id: req.id,
+      });
+    }
+
+    if (needsOverride) {
+      await AuditLog.create({
+        actorId: req.user.id,
+        actorRole: req.user.role || 'user',
+        action: 'cover_override',
+        meta: {
+          shiftId: String(shift._id),
+          from: top ? top.staffId : null,
+          to: chosen.staffId,
+          reason: overrideReason,
+        },
+      });
+    }
+
+    shift.coveredBy = staffId;
+    shift.status = 'covered';
+    await shift.save();
+    res.status(200).json({ success: true, data: { shift, overridden: needsOverride } });
+  } catch (err) {
+    logger.error('Error in assignCover:', err);
     next(err);
   }
 };

@@ -774,3 +774,60 @@ async function verifyAssignment(p) {
   return checkAssignment(ss, slot, { rules: location.settings || {}, slots: ctxSlots });
 }
 module.exports.verifyAssignment = verifyAssignment;
+
+/**
+ * Rank who can cover a shift (§6.7). Eligible = passes all HARD rules for that
+ * slot (the absent shift is excluded so its seat reads as open). Each candidate
+ * carries their reliabilityScore + canAutoClaim (>= threshold OR forceTrustCover).
+ * Sorted by reliability desc (deterministic tiebreak on staffId).
+ *
+ * @param {object} shift - a Shift document
+ * @returns {Promise<Array<{staffId,name,role,reliabilityScore,canAutoClaim,softWarnings}>>}
+ */
+async function coverCandidates(shift) {
+  const StaffMember = require('../models/StaffMember');
+  const StaffMetrics = require('../models/StaffMetrics');
+
+  const staff = await StaffMember.find({
+    businessId: shift.businessId,
+    locationIds: shift.locationId,
+    isActive: true,
+  });
+  const now = new Date();
+  const metrics = await StaffMetrics.find({
+    staffId: { $in: staff.map((s) => s._id) },
+    'period.year': now.getFullYear(),
+    'period.month': now.getMonth() + 1,
+  });
+  const metricBy = new Map(metrics.map((m) => [String(m.staffId), m]));
+
+  const out = [];
+  for (const s of staff) {
+    if (String(s._id) === String(shift.staffId)) continue; // absent person can't cover self
+    const verdict = await verifyAssignment({
+      scheduleId: shift.scheduleId,
+      staffId: s._id,
+      date: shift.date,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      shiftType: shift.shiftType,
+      excludeShiftId: shift._id,
+    });
+    if (verdict.hard.length) continue; // ineligible — would break a hard rule
+    const rel = reliabilityScore(metricBy.get(String(s._id)));
+    out.push({
+      staffId: String(s._id),
+      name: s.name,
+      role: s.role,
+      reliabilityScore: rel,
+      canAutoClaim: rel >= AUTO_CLAIM_THRESHOLD || !!s.forceTrustCover,
+      softWarnings: verdict.soft.length,
+    });
+  }
+  out.sort(
+    (a, b) =>
+      b.reliabilityScore - a.reliabilityScore || String(a.staffId).localeCompare(String(b.staffId))
+  );
+  return out;
+}
+module.exports.coverCandidates = coverCandidates;
