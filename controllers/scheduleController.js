@@ -107,3 +107,140 @@ exports.generateSchedule = async (req, res, next) => {
     next(err);
   }
 };
+
+// Map a free-form shiftType label to the Shift enum; unknown → 'custom'.
+const toShiftEnum = (t) =>
+  ['morning', 'afternoon', 'evening'].includes(String(t).toLowerCase())
+    ? String(t).toLowerCase()
+    : 'custom';
+
+/**
+ * @route   POST /api/v1/schedules/:id/apply
+ * @desc    Persist an accepted preview as Shift docs (replaces non-locked shifts).
+ * @access  Private (owner)
+ */
+exports.applySchedule = async (req, res, next) => {
+  try {
+    const schedule = await Schedule.findOne({ _id: req.params.id, businessId: req.business._id });
+    if (!schedule) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Schedule not found.', request_id: req.id });
+    }
+    if (schedule.status !== 'draft') {
+      return res.status(409).json({
+        success: false,
+        message: 'Only draft schedules can be edited.',
+        request_id: req.id,
+      });
+    }
+
+    const rows = Array.isArray(req.body.shifts) ? req.body.shifts : [];
+    // Locked shifts are immovable — only replace the non-locked ones.
+    await Shift.deleteMany({ scheduleId: schedule._id, locked: { $ne: true } });
+
+    const docs = rows.map((s) => ({
+      scheduleId: schedule._id,
+      businessId: schedule.businessId,
+      locationId: schedule.locationId,
+      staffId: s.staffId,
+      date: new Date(s.date),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      shiftType: toShiftEnum(s.shiftType),
+      isWeekend: !!s.isWeekend,
+      isNight: !!s.isNight,
+      locked: false,
+    }));
+    if (docs.length) await Shift.insertMany(docs);
+
+    schedule.generatedBy = 'auto';
+    if (typeof req.body.fairnessScore === 'number') schedule.fairnessScore = req.body.fairnessScore;
+    await schedule.save();
+
+    const shifts = await Shift.find({ scheduleId: schedule._id }).sort({ date: 1, startTime: 1 });
+    res.status(200).json({ success: true, data: { schedule, shifts } });
+  } catch (err) {
+    logger.error('Error in applySchedule:', err);
+    next(err);
+  }
+};
+
+/**
+ * @route   POST /api/v1/schedules/:id/publish
+ * @desc    Publish a schedule (staff can then see their shifts).
+ * @access  Private (owner)
+ */
+exports.publishSchedule = async (req, res, next) => {
+  try {
+    const schedule = await Schedule.findOne({ _id: req.params.id, businessId: req.business._id });
+    if (!schedule) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Schedule not found.', request_id: req.id });
+    }
+    schedule.status = 'published';
+    schedule.publishedAt = new Date();
+    schedule.publishedBy = req.user.id;
+    await schedule.save();
+
+    // Notifying affected staff (in-app/email/push) lands in Phase 9.
+    res.status(200).json({ success: true, data: { schedule, notified: [] } });
+  } catch (err) {
+    logger.error('Error in publishSchedule:', err);
+    next(err);
+  }
+};
+
+/**
+ * @route   POST /api/v1/schedules/:id/copy
+ * @desc    Copy another week's shifts into this draft (date-shifted).
+ * @access  Private (owner)
+ */
+exports.copySchedule = async (req, res, next) => {
+  try {
+    const schedule = await Schedule.findOne({ _id: req.params.id, businessId: req.business._id });
+    if (!schedule) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Schedule not found.', request_id: req.id });
+    }
+    const from = await Schedule.findOne({
+      _id: req.body.fromScheduleId,
+      businessId: req.business._id,
+    });
+    if (!from) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Source schedule not found.', request_id: req.id });
+    }
+
+    const offsetMs =
+      new Date(schedule.periodStart).getTime() - new Date(from.periodStart).getTime();
+    const src = await Shift.find({ scheduleId: from._id });
+    await Shift.deleteMany({ scheduleId: schedule._id, locked: { $ne: true } });
+
+    const docs = src.map((s) => ({
+      scheduleId: schedule._id,
+      businessId: schedule.businessId,
+      locationId: schedule.locationId,
+      staffId: s.staffId,
+      date: new Date(new Date(s.date).getTime() + offsetMs),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      shiftType: s.shiftType,
+      isWeekend: s.isWeekend,
+      isNight: s.isNight,
+      locked: false,
+    }));
+    if (docs.length) await Shift.insertMany(docs);
+
+    schedule.generatedBy = 'copy';
+    await schedule.save();
+    const shifts = await Shift.find({ scheduleId: schedule._id }).sort({ date: 1, startTime: 1 });
+    res.status(200).json({ success: true, data: { schedule, shifts } });
+  } catch (err) {
+    logger.error('Error in copySchedule:', err);
+    next(err);
+  }
+};

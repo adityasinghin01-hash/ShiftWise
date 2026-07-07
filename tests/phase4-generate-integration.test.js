@@ -90,6 +90,8 @@ afterAll(async () => {
   if (mongoose.connection.readyState === 0) return;
   const bizId = business?._id;
   if (bizId) {
+    const Shift = require('../models/Shift');
+    await Shift.deleteMany({ businessId: bizId });
     await Promise.all([
       Schedule.deleteMany({ businessId: bizId }),
       StaffMember.deleteMany({ businessId: bizId }),
@@ -154,5 +156,47 @@ describe('Phase 4 — create + generate schedule (HTTP)', () => {
     const Shift = require('../models/Shift');
     const count = await Shift.countDocuments({ scheduleId });
     expect(count).toBe(0);
+  });
+
+  it('applies an accepted preview → persists the shifts', async () => {
+    const gen = await request(app)
+      .post(`/api/v1/schedules/${scheduleId}/generate`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    const res = await request(app)
+      .post(`/api/v1/schedules/${scheduleId}/apply`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ shifts: gen.body.data.preview, fairnessScore: gen.body.data.fairnessScore });
+    expect(res.status).toBe(200);
+    expect(res.body.data.shifts).toHaveLength(7);
+    const Shift = require('../models/Shift');
+    expect(await Shift.countDocuments({ scheduleId })).toBe(7);
+  });
+
+  it('blocks a hard-rule-violating manual shift (double-booked)', async () => {
+    const Shift = require('../models/Shift');
+    const existing = await Shift.findOne({ scheduleId });
+    const res = await request(app)
+      .post(`/api/v1/schedules/${scheduleId}/shifts`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        staffId: String(existing.staffId),
+        date: new Date(existing.date).toISOString(),
+        startTime: existing.startTime,
+        endTime: existing.endTime,
+        shiftType: existing.shiftType,
+      });
+    expect(res.status).toBe(422);
+    expect(res.body.verdict.hard.length).toBeGreaterThan(0);
+  });
+
+  it('publishes the schedule', async () => {
+    const res = await request(app)
+      .post(`/api/v1/schedules/${scheduleId}/publish`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.data.schedule.status).toBe('published');
+    expect(res.body.data.schedule.publishedAt).toBeTruthy();
   });
 });

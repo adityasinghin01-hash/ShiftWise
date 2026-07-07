@@ -666,3 +666,98 @@ function assignSlots(ctx) {
   return { conflicts, fairnessScore: computeFairnessPercent(staffStates) };
 }
 module.exports.assignSlots = assignSlots;
+
+/**
+ * Verify a SINGLE proposed shift against the rules (§6.2) — used by manual
+ * shift add/edit in the Schedule Builder so a manager sees the same hard/soft
+ * verdict the auto-generator uses. Loads just what this one assignment needs.
+ *
+ * @param {object} p - { scheduleId, staffId, date, startTime, endTime, shiftType, excludeShiftId? }
+ * @returns {Promise<{hard:[],soft:[]}>}
+ */
+async function verifyAssignment(p) {
+  const Schedule = require('../models/Schedule');
+  const Location = require('../models/Location');
+  const StaffMember = require('../models/StaffMember');
+  const Availability = require('../models/Availability');
+  const TimeOffRequest = require('../models/TimeOffRequest');
+  const Shift = require('../models/Shift');
+  const { resolveAvailability } = require('../utils/weekUtils');
+
+  const schedule = await Schedule.findById(p.scheduleId);
+  if (!schedule) throw new Error('SCHEDULE_NOT_FOUND');
+  const location = await Location.findById(schedule.locationId);
+  const staff = await StaffMember.findById(p.staffId);
+  if (!staff) throw new Error('STAFF_NOT_FOUND');
+
+  const date = new Date(p.date);
+  const dayOfWeek = (date.getUTCDay() + 6) % 7; // 0=Mon … 6=Sun
+  const dayISO = date.toISOString().slice(0, 10);
+  const idStr = (v) => String(v);
+  const notSelf = p.excludeShiftId ? { _id: { $ne: p.excludeShiftId } } : {};
+
+  const [av, offs, ownShifts, peerShifts] = await Promise.all([
+    Availability.findOne({ staffId: p.staffId, locationId: schedule.locationId }),
+    TimeOffRequest.find({
+      businessId: schedule.businessId,
+      staffId: p.staffId,
+      status: 'approved',
+      startDate: { $lte: date },
+      endDate: { $gte: date },
+    }),
+    Shift.find({ scheduleId: p.scheduleId, staffId: p.staffId, ...notSelf }),
+    Shift.find({ scheduleId: p.scheduleId, shiftType: p.shiftType, date, ...notSelf }),
+  ]);
+
+  const availabilityIndex = new Map();
+  for (const ds of resolveAvailability(av, schedule.periodStart, 0)) {
+    availabilityIndex.set(ds.dayOfWeek, {
+      available: ds.available !== false,
+      start: ds.preferredStart,
+      end: ds.preferredEnd,
+    });
+  }
+
+  const incompatibleWith = new Set();
+  for (const pair of location.settings?.incompatiblePairs || []) {
+    const [a, b] = pair.map(idStr);
+    if (a === idStr(p.staffId)) incompatibleWith.add(b);
+    if (b === idStr(p.staffId)) incompatibleWith.add(a);
+  }
+
+  const assignedShifts = ownShifts.map((o) => ({
+    date: o.date,
+    startTime: o.startTime,
+    endTime: o.endTime,
+  }));
+  const slot = {
+    date,
+    dayOfWeek,
+    shiftType: p.shiftType,
+    startTime: p.startTime,
+    endTime: p.endTime,
+    requiredRole: null,
+    assignedStaffId: null,
+  };
+  const ctxSlots = peerShifts.map((ps) => ({
+    date: ps.date,
+    shiftType: ps.shiftType,
+    assignedStaffId: idStr(ps.staffId),
+  }));
+  ctxSlots.push(slot);
+
+  const ss = {
+    staffId: idStr(p.staffId),
+    name: staff.name,
+    role: staff.role,
+    maxHoursPerWeek: staff.maxHoursPerWeek || 0,
+    availabilityIndex,
+    timeOffDays: new Set(offs.length ? [dayISO] : []),
+    incompatibleWith,
+    assignedShifts,
+    hoursAssigned: assignedShifts.reduce((h, a) => h + slotHours(a), 0),
+  };
+
+  return checkAssignment(ss, slot, { rules: location.settings || {}, slots: ctxSlots });
+}
+module.exports.verifyAssignment = verifyAssignment;

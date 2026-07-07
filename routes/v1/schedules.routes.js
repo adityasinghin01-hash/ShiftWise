@@ -9,6 +9,7 @@ const router = express.Router();
 const { body } = require('express-validator');
 
 const scheduleController = require('../../controllers/scheduleController');
+const shiftController = require('../../controllers/shiftController');
 const { protect } = require('../../middleware/authMiddleware');
 const resolveBusiness = require('../../middleware/resolveBusiness');
 const requireOwner = require('../../middleware/requireOwner');
@@ -22,8 +23,23 @@ const createSchema = validate([
 // All schedule routes require auth + resolved business + owner role.
 router.use(protect(), resolveBusiness, requireOwner);
 
+const shiftSchema = validate([
+  body('staffId').isMongoId().withMessage('A valid staffId is required.'),
+  body('date').isISO8601().withMessage('date must be an ISO date.'),
+  body('startTime')
+    .matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .withMessage('startTime must be HH:MM.'),
+  body('endTime')
+    .matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .withMessage('endTime must be HH:MM.'),
+]);
+
 router.post('/', createSchema, scheduleController.createSchedule);
 router.get('/:id', scheduleController.getSchedule);
 router.post('/:id/generate', scheduleController.generateSchedule);
+router.post('/:id/apply', scheduleController.applySchedule);
+router.post('/:id/publish', scheduleController.publishSchedule);
+router.post('/:id/copy', scheduleController.copySchedule);
+router.post('/:id/shifts', shiftSchema, shiftController.createShift);
 
 module.exports = router;
