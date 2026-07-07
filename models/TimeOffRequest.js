@@ -29,8 +29,8 @@ const timeOffRequestSchema = new mongoose.Schema(
     },
 
     startDate: { type: Date, required: true },
-    endDate:   { type: Date, required: true },
-    reason:    { type: String, trim: true, maxlength: 500 },
+    endDate: { type: Date, required: true },
+    reason: { type: String, trim: true, maxlength: 500 },
 
     status: {
       type: String,
@@ -39,9 +39,9 @@ const timeOffRequestSchema = new mongoose.Schema(
     },
 
     // Review metadata
-    reviewedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    reviewedAt:  { type: Date, default: null },
-    reviewNote:  { type: String, maxlength: 500 },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewNote: { type: String, maxlength: 500 },
   },
   { timestamps: true }
 );

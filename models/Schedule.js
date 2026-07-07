@@ -27,7 +27,7 @@ const scheduleSchema = new mongoose.Schema(
     // ── Period ────────────────────────────────────────────
     // V1: weekly only (Mon–Sun). periodEnd computed from periodStart on create.
     periodStart: { type: Date, required: true }, // Monday 00:00 UTC
-    periodEnd:   { type: Date, required: true }, // Sunday 23:59 UTC
+    periodEnd: { type: Date, required: true }, // Sunday 23:59 UTC
 
     // ── Lifecycle ─────────────────────────────────────────
     // draft     = being built / just generated (not visible to staff)

@@ -27,8 +27,8 @@ const businessSchema = new mongoose.Schema(
 
     // ── Business-wide settings ────────────────────────────
     settings: {
-      timezone: { type: String, default: 'UTC' },        // IANA tz string e.g. 'Asia/Kolkata'
-      currency: { type: String, default: 'USD' },        // ISO 4217
+      timezone: { type: String, default: 'UTC' }, // IANA tz string e.g. 'Asia/Kolkata'
+      currency: { type: String, default: 'USD' }, // ISO 4217
       weekStartsOn: { type: Number, default: 0, min: 0, max: 1 }, // 0=Monday, 1=Sunday
     },
 
@@ -38,11 +38,11 @@ const businessSchema = new mongoose.Schema(
     onboarding: {
       completed: { type: Boolean, default: false },
       checklist: {
-        addedStaff:    { type: Boolean, default: false },
+        addedStaff: { type: Boolean, default: false },
         availabilitySet: { type: Boolean, default: false },
-        rulesSet:      { type: Boolean, default: false },
-        generated:     { type: Boolean, default: false },
-        published:     { type: Boolean, default: false },
+        rulesSet: { type: Boolean, default: false },
+        generated: { type: Boolean, default: false },
+        published: { type: Boolean, default: false },
       },
     },
   },

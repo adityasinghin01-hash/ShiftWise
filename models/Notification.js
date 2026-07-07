@@ -37,13 +37,13 @@ const notificationSchema = new mongoose.Schema(
         'cover_needed',
         'badge_awarded',
         'cover_override',
-        'override_request',   // availability override request from manager
+        'override_request', // availability override request from manager
         'shift_disputed',
       ],
     },
 
     title: { type: String, required: true, maxlength: 120 },
-    body:  { type: String, required: true, maxlength: 500 },
+    body: { type: String, required: true, maxlength: 500 },
 
     // Contextual payload (e.g. { scheduleId, shiftId } for deep-link navigation)
     data: { type: mongoose.Schema.Types.Mixed, default: {} },

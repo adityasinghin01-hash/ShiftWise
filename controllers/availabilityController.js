@@ -7,7 +7,7 @@
 'use strict';
 
 const Availability = require('../models/Availability');
-const StaffMember  = require('../models/StaffMember');
+const StaffMember = require('../models/StaffMember');
 const { startOfWeek, resolveAvailability } = require('../utils/weekUtils');
 const logger = require('../config/logger');
 
@@ -24,17 +24,27 @@ function primaryLocation(staff) {
 exports.getMyAvailability = async (req, res, next) => {
   try {
     if (req.membership !== 'staff' || !req.staffMember) {
-      return res.status(403).json({ success: false, message: 'Only staff have availability.', request_id: req.id });
+      return res
+        .status(403)
+        .json({ success: false, message: 'Only staff have availability.', request_id: req.id });
     }
     const locationId = primaryLocation(req.staffMember);
     if (!locationId) {
-      return res.status(400).json({ success: false, message: 'You are not assigned to a location yet.', request_id: req.id });
+      return res.status(400).json({
+        success: false,
+        message: 'You are not assigned to a location yet.',
+        request_id: req.id,
+      });
     }
 
     // Find or lazily create the availability doc for this staff+location
     let availability = await Availability.findOne({ staffId: req.staffMember._id, locationId });
     if (!availability) {
-      availability = await Availability.create({ staffId: req.staffMember._id, locationId, recurring: { slots: [] } });
+      availability = await Availability.create({
+        staffId: req.staffMember._id,
+        locationId,
+        recurring: { slots: [] },
+      });
     }
     res.status(200).json({ success: true, data: availability });
   } catch (err) {
@@ -51,15 +61,26 @@ exports.getMyAvailability = async (req, res, next) => {
 exports.updateMyAvailability = async (req, res, next) => {
   try {
     if (req.membership !== 'staff' || !req.staffMember) {
-      return res.status(403).json({ success: false, message: 'Only staff can set availability.', request_id: req.id });
+      return res
+        .status(403)
+        .json({ success: false, message: 'Only staff can set availability.', request_id: req.id });
     }
     const locationId = primaryLocation(req.staffMember);
     if (!locationId) {
-      return res.status(400).json({ success: false, message: 'You are not assigned to a location yet.', request_id: req.id });
+      return res.status(400).json({
+        success: false,
+        message: 'You are not assigned to a location yet.',
+        request_id: req.id,
+      });
     }
     const { slots } = req.body.recurring || {};
     if (!Array.isArray(slots)) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: 'recurring.slots must be an array.', request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: 'recurring.slots must be an array.',
+        request_id: req.id,
+      });
     }
 
     const availability = await Availability.findOneAndUpdate(
@@ -82,18 +103,29 @@ exports.updateMyAvailability = async (req, res, next) => {
 exports.setMyOverride = async (req, res, next) => {
   try {
     if (req.membership !== 'staff' || !req.staffMember) {
-      return res.status(403).json({ success: false, message: 'Only staff can set availability.', request_id: req.id });
+      return res
+        .status(403)
+        .json({ success: false, message: 'Only staff can set availability.', request_id: req.id });
     }
     const locationId = primaryLocation(req.staffMember);
     const { weekOf, slots } = req.body;
     if (!weekOf || !Array.isArray(slots)) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: 'weekOf and slots are required.', request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: 'weekOf and slots are required.',
+        request_id: req.id,
+      });
     }
     const normalizedWeek = startOfWeek(weekOf);
 
     const availability = await Availability.findOne({ staffId: req.staffMember._id, locationId });
     if (!availability) {
-      return res.status(404).json({ success: false, message: 'Set your recurring availability first.', request_id: req.id });
+      return res.status(404).json({
+        success: false,
+        message: 'Set your recurring availability first.',
+        request_id: req.id,
+      });
     }
 
     // Upsert the override for this week (replace if it already exists)
@@ -123,15 +155,22 @@ exports.getLocationAvailability = async (req, res, next) => {
     const weekStartsOn = req.business.settings?.weekStartsOn ?? 0;
 
     // All active staff at this location (scoped to business)
-    const staff = await StaffMember.find({ businessId: req.business._id, locationIds: locationId, isActive: true });
-    const availabilities = await Availability.find({ locationId, staffId: { $in: staff.map((s) => s._id) } });
+    const staff = await StaffMember.find({
+      businessId: req.business._id,
+      locationIds: locationId,
+      isActive: true,
+    });
+    const availabilities = await Availability.find({
+      locationId,
+      staffId: { $in: staff.map((s) => s._id) },
+    });
     const byStaff = new Map(availabilities.map((a) => [a.staffId.toString(), a]));
 
     const data = staff.map((s) => {
       const av = byStaff.get(s._id.toString());
       const resolved = resolveAvailability(av, weekOf, weekStartsOn);
       // "submitted" = has any recurring slots OR an override for this week
-      const submitted = !!av && ((av.recurring?.slots?.length > 0) || resolved.length > 0);
+      const submitted = !!av && (av.recurring?.slots?.length > 0 || resolved.length > 0);
       return { staffId: s._id, name: s.name, resolvedSlots: resolved, submitted };
     });
 
@@ -152,12 +191,20 @@ exports.requestOverride = async (req, res, next) => {
     const { staffId } = req.params;
     const { weekOf, slots, note } = req.body;
     if (!weekOf || !Array.isArray(slots)) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: 'weekOf and slots are required.', request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: 'weekOf and slots are required.',
+        request_id: req.id,
+      });
     }
 
     // Verify staff belongs to this business (tenancy)
     const staff = await StaffMember.findOne({ _id: staffId, businessId: req.business._id });
-    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found', request_id: req.id });
+    if (!staff)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found', request_id: req.id });
 
     const locationId = primaryLocation(staff);
     let availability = await Availability.findOne({ staffId, locationId });
@@ -191,11 +238,20 @@ exports.requestOverride = async (req, res, next) => {
 exports.reviewOverride = async (req, res, next) => {
   try {
     if (req.membership !== 'staff' || !req.staffMember) {
-      return res.status(403).json({ success: false, message: 'Only the staff member can review this.', request_id: req.id });
+      return res.status(403).json({
+        success: false,
+        message: 'Only the staff member can review this.',
+        request_id: req.id,
+      });
     }
     const { decision } = req.body; // 'confirm' | 'decline'
     if (!['confirm', 'decline'].includes(decision)) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: 'decision must be confirm or decline.', request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: 'decision must be confirm or decline.',
+        request_id: req.id,
+      });
     }
 
     // Find the availability doc owning this pending override (must belong to the caller)
@@ -204,12 +260,18 @@ exports.reviewOverride = async (req, res, next) => {
       'pendingOverrides._id': req.params.id,
     });
     if (!availability) {
-      return res.status(404).json({ success: false, message: 'Override request not found', request_id: req.id });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Override request not found', request_id: req.id });
     }
 
     const pending = availability.pendingOverrides.id(req.params.id);
     if (pending.status !== 'pending') {
-      return res.status(409).json({ success: false, message: 'This request was already reviewed.', request_id: req.id });
+      return res.status(409).json({
+        success: false,
+        message: 'This request was already reviewed.',
+        request_id: req.id,
+      });
     }
 
     if (decision === 'confirm') {

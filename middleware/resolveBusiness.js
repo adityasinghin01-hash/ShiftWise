@@ -13,9 +13,9 @@
 
 'use strict';
 
-const Business    = require('../models/Business');
+const Business = require('../models/Business');
 const StaffMember = require('../models/StaffMember');
-const logger      = require('../config/logger');
+const logger = require('../config/logger');
 
 /**
  * resolveBusiness — middleware that determines whether the authenticated user
@@ -31,7 +31,7 @@ const resolveBusiness = async (req, res, next) => {
     const ownedBusiness = await Business.findOne({ ownerId: req.user.id });
 
     if (ownedBusiness) {
-      req.business   = ownedBusiness;
+      req.business = ownedBusiness;
       req.membership = 'owner';
       req.staffMember = null;
       return next();
@@ -57,8 +57,8 @@ const resolveBusiness = async (req, res, next) => {
         });
       }
 
-      req.business    = business;
-      req.membership  = 'staff';
+      req.business = business;
+      req.membership = 'staff';
       req.staffMember = staffMember;
       return next();
     }
@@ -71,7 +71,6 @@ const resolveBusiness = async (req, res, next) => {
       message: 'No business context found. Please complete onboarding.',
       request_id: req.id,
     });
-
   } catch (err) {
     logger.error('resolveBusiness middleware error:', err);
     next(err);

@@ -8,7 +8,7 @@
 'use strict';
 
 const Business = require('../models/Business');
-const logger   = require('../config/logger');
+const logger = require('../config/logger');
 
 /**
  * @route   POST /api/v1/business
@@ -77,9 +77,10 @@ exports.updateBusiness = async (req, res, next) => {
     // Only mutate explicitly provided fields (partial update)
     if (name !== undefined) business.name = name;
     if (settings) {
-      if (settings.timezone !== undefined)     business.settings.timezone = settings.timezone;
-      if (settings.currency !== undefined)     business.settings.currency = settings.currency;
-      if (settings.weekStartsOn !== undefined) business.settings.weekStartsOn = settings.weekStartsOn;
+      if (settings.timezone !== undefined) business.settings.timezone = settings.timezone;
+      if (settings.currency !== undefined) business.settings.currency = settings.currency;
+      if (settings.weekStartsOn !== undefined)
+        business.settings.weekStartsOn = settings.weekStartsOn;
     }
     // Allow the wizard / checklist to flip onboarding flags
     if (onboarding) {

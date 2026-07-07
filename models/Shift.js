@@ -37,9 +37,9 @@ const shiftSchema = new mongoose.Schema(
     },
 
     // ── Time ──────────────────────────────────────────────
-    date:      { type: Date, required: true },     // UTC midnight of the shift day
-    startTime: { type: String, required: true },   // 'HH:MM' in location tz
-    endTime:   { type: String, required: true },   // 'HH:MM' in location tz
+    date: { type: Date, required: true }, // UTC midnight of the shift day
+    startTime: { type: String, required: true }, // 'HH:MM' in location tz
+    endTime: { type: String, required: true }, // 'HH:MM' in location tz
 
     shiftType: {
       type: String,
@@ -49,7 +49,7 @@ const shiftSchema = new mongoose.Schema(
 
     // Pre-computed flags for fast fairness scoring (set on create/update)
     isWeekend: { type: Boolean, default: false }, // Sat or Sun
-    isNight:   { type: Boolean, default: false }, // endTime >= 22:00 or startTime <= 06:00
+    isNight: { type: Boolean, default: false }, // endTime >= 22:00 or startTime <= 06:00
 
     // ── Builder state ─────────────────────────────────────
     // locked = true means auto-generate will NOT move this shift.
@@ -79,7 +79,7 @@ const shiftSchema = new mongoose.Schema(
 
     // Actual clock-in/out (v2 feature, schema ready)
     actualStart: { type: Date, default: null },
-    actualEnd:   { type: Date, default: null },
+    actualEnd: { type: Date, default: null },
 
     notes: { type: String, maxlength: 500 },
   },
@@ -87,8 +87,8 @@ const shiftSchema = new mongoose.Schema(
 );
 
 // Hot query paths
-shiftSchema.index({ staffId: 1, date: 1 });       // "what is this person doing on this day?"
-shiftSchema.index({ businessId: 1, date: 1 });    // "all shifts for this business on this date"
+shiftSchema.index({ staffId: 1, date: 1 }); // "what is this person doing on this day?"
+shiftSchema.index({ businessId: 1, date: 1 }); // "all shifts for this business on this date"
 // Note: scheduleId already has `index: true` on the field definition above.
 
 const Shift = mongoose.model('Shift', shiftSchema);

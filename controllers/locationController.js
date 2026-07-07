@@ -8,7 +8,7 @@
 'use strict';
 
 const Location = require('../models/Location');
-const logger   = require('../config/logger');
+const logger = require('../config/logger');
 
 /**
  * Validate location settings rule numbers beyond what express-validator covers.
@@ -18,11 +18,13 @@ const logger   = require('../config/logger');
  */
 function validateRules(settings) {
   if (!settings) return null;
-  const { minStaffPerShift, maxStaffPerShift, maxHoursPerWeek, minRestHours, maxDaysConsecutive } = settings;
+  const { minStaffPerShift, maxStaffPerShift, maxHoursPerWeek, minRestHours, maxDaysConsecutive } =
+    settings;
 
   // min must not exceed max
   if (
-    minStaffPerShift !== undefined && maxStaffPerShift !== undefined &&
+    minStaffPerShift !== undefined &&
+    maxStaffPerShift !== undefined &&
     minStaffPerShift > maxStaffPerShift
   ) {
     return 'minStaffPerShift cannot be greater than maxStaffPerShift';
@@ -66,7 +68,12 @@ exports.createLocation = async (req, res, next) => {
 
     const ruleError = validateRules(settings);
     if (ruleError) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: ruleError, request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: ruleError,
+        request_id: req.id,
+      });
     }
 
     const location = await Location.create({
@@ -95,7 +102,9 @@ exports.getLocation = async (req, res, next) => {
     // TENANCY: filter by BOTH id AND businessId so one business can't read another's
     const location = await Location.findOne({ _id: req.params.id, businessId: req.business._id });
     if (!location) {
-      return res.status(404).json({ success: false, message: 'Location not found', request_id: req.id });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Location not found', request_id: req.id });
     }
     res.status(200).json({ success: true, data: location });
   } catch (err) {
@@ -115,17 +124,24 @@ exports.updateLocation = async (req, res, next) => {
 
     const ruleError = validateRules(settings);
     if (ruleError) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: ruleError, request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: ruleError,
+        request_id: req.id,
+      });
     }
 
     // TENANCY: scoped find
     const location = await Location.findOne({ _id: req.params.id, businessId: req.business._id });
     if (!location) {
-      return res.status(404).json({ success: false, message: 'Location not found', request_id: req.id });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Location not found', request_id: req.id });
     }
 
-    if (name !== undefined)     location.name = name;
-    if (address !== undefined)  location.address = address;
+    if (name !== undefined) location.name = name;
+    if (address !== undefined) location.address = address;
     if (timezone !== undefined) location.timezone = timezone;
     if (isActive !== undefined) location.isActive = isActive;
     if (settings) {
@@ -151,7 +167,9 @@ exports.deleteLocation = async (req, res, next) => {
     // TENANCY: scoped find
     const location = await Location.findOne({ _id: req.params.id, businessId: req.business._id });
     if (!location) {
-      return res.status(404).json({ success: false, message: 'Location not found', request_id: req.id });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Location not found', request_id: req.id });
     }
 
     location.isActive = false; // soft delete — keep history intact

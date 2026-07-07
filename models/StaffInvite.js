@@ -20,9 +20,9 @@ const staffInviteSchema = new mongoose.Schema(
       ref: 'StaffMember',
       required: true,
     },
-    email:      { type: String, required: true, lowercase: true, trim: true },
-    tokenHash:  { type: String, required: true, index: true }, // SHA-256 of raw token
-    expiresAt:  { type: Date, required: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
+    tokenHash: { type: String, required: true, index: true }, // SHA-256 of raw token
+    expiresAt: { type: Date, required: true },
     acceptedAt: { type: Date, default: null },
   },
   { timestamps: true }

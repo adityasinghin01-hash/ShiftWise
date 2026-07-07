@@ -67,6 +67,6 @@ module.exports = [
     },
   },
   {
-    ignores: ['node_modules/**', 'dist/**', 'coverage/**', 'frontend/**'],
+    ignores: ['**/node_modules/**', '**/dist/**', 'coverage/**', 'frontend/**', 'landing/**'],
   },
 ];

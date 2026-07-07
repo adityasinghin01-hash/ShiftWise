@@ -17,11 +17,18 @@ const { validate } = require('../../middleware/validate');
 
 // ── Validation schema ─────────────────────────────────────
 const createBusinessSchema = validate([
-  body('name').trim().notEmpty().withMessage('Business name is required.')
-    .isLength({ max: 100 }).withMessage('Business name is too long.'),
+  body('name')
+    .trim()
+    .notEmpty()
+    .withMessage('Business name is required.')
+    .isLength({ max: 100 })
+    .withMessage('Business name is too long.'),
   body('timezone').optional().isString().isLength({ max: 64 }),
   body('currency').optional().isString().isLength({ max: 8 }),
-  body('weekStartsOn').optional().isInt({ min: 0, max: 1 }).withMessage('weekStartsOn must be 0 (Mon) or 1 (Sun).'),
+  body('weekStartsOn')
+    .optional()
+    .isInt({ min: 0, max: 1 })
+    .withMessage('weekStartsOn must be 0 (Mon) or 1 (Sun).'),
 ]);
 
 // ── POST /api/v1/business — create (no resolveBusiness: user has none yet) ──

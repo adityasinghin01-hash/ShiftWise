@@ -30,7 +30,10 @@ router.post(
     body('token').trim().notEmpty().withMessage('Invite token is required.'),
     // Password only required when no existing account is linked; controller
     // enforces presence when creating a fresh user. Validate length if given.
-    body('password').optional().isLength({ min: 12, max: 128 }).withMessage('Password must be 12–128 characters.'),
+    body('password')
+      .optional()
+      .isLength({ min: 12, max: 128 })
+      .withMessage('Password must be 12–128 characters.'),
   ]),
   joinController.acceptInvite
 );

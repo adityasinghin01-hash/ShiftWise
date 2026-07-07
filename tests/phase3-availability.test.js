@@ -5,10 +5,10 @@
 // Integration: my-availability get/set/override, manager overview, override-request
 // confirm flow, and tenancy isolation.
 
-const request  = require('supertest');
+const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt      = require('jsonwebtoken');
-const config   = require('../config/config');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 const { startOfWeek, resolveAvailability } = require('../utils/weekUtils');
 
 const MONGO_URI = process.env.MONGO_URI_TEST;
@@ -18,7 +18,8 @@ let app, User, Business, Location, StaffMember, Availability;
 let owner, ownerToken, biz, location;
 let staffUser, staffToken, staffMember;
 
-const signToken = (id) => jwt.sign({ id }, config.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
+const signToken = (id) =>
+  jwt.sign({ id }, config.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
 const auth = (t) => ({ Authorization: `Bearer ${t}` });
 
 // ──────────────────────────────────────────────────────────
@@ -47,7 +48,9 @@ describe('weekUtils', () => {
   it('resolveAvailability: override for the week beats recurring', () => {
     const av = {
       recurring: { slots: [{ dayOfWeek: 0, available: true }] },
-      overrides: [{ weekOf: new Date('2026-06-15T00:00:00Z'), slots: [{ dayOfWeek: 5, available: true }] }],
+      overrides: [
+        { weekOf: new Date('2026-06-15T00:00:00Z'), slots: [{ dayOfWeek: 5, available: true }] },
+      ],
     };
     const r = resolveAvailability(av, '2026-06-17', 0);
     expect(r).toHaveLength(1);
@@ -72,17 +75,31 @@ beforeAll(async () => {
   StaffMember = require('../models/StaffMember');
   Availability = require('../models/Availability');
 
-  owner = await User.create({ email: `p3-owner+${RUN_ID}@shiftwise.dev`, password: 'SecureP@ss1234', name: 'Owner', isVerified: true });
+  owner = await User.create({
+    email: `p3-owner+${RUN_ID}@shiftwise.dev`,
+    password: 'SecureP@ss1234',
+    name: 'Owner',
+    isVerified: true,
+  });
   ownerToken = signToken(owner._id);
   biz = await Business.create({ name: 'P3 Biz', ownerId: owner._id });
   location = await Location.create({ businessId: biz._id, name: 'Loc' });
 
   // A joined staff member (linked user)
-  staffUser = await User.create({ email: `p3-staff+${RUN_ID}@shiftwise.dev`, password: 'SecureP@ss1234', name: 'Staff', isVerified: true });
+  staffUser = await User.create({
+    email: `p3-staff+${RUN_ID}@shiftwise.dev`,
+    password: 'SecureP@ss1234',
+    name: 'Staff',
+    isVerified: true,
+  });
   staffToken = signToken(staffUser._id);
   staffMember = await StaffMember.create({
-    businessId: biz._id, name: 'Staff', email: staffUser.email,
-    userId: staffUser._id, accountStatus: 'active', locationIds: [location._id],
+    businessId: biz._id,
+    name: 'Staff',
+    email: staffUser.email,
+    userId: staffUser._id,
+    accountStatus: 'active',
+    locationIds: [location._id],
   });
 });
 
@@ -93,7 +110,9 @@ afterAll(async () => {
     await Location.deleteMany({ businessId: biz?._id });
     await Business.deleteMany({ _id: biz?._id });
     await User.deleteMany({ _id: { $in: [owner?._id, staffUser?._id] } });
-  } catch (err) { console.warn('Teardown warning:', err.message); }
+  } catch (err) {
+    console.warn('Teardown warning:', err.message);
+  }
   if (mongoose.connection.readyState !== 0) await mongoose.connection.close();
 });
 
@@ -105,8 +124,16 @@ describe('Staff availability', () => {
   });
 
   it('PUT /my/availability sets the recurring pattern', async () => {
-    const res = await request(app).put('/api/v1/my/availability').set(auth(staffToken))
-      .send({ recurring: { slots: [{ dayOfWeek: 0, available: true, preferredStart: '09:00', preferredEnd: '17:00' }] } });
+    const res = await request(app)
+      .put('/api/v1/my/availability')
+      .set(auth(staffToken))
+      .send({
+        recurring: {
+          slots: [
+            { dayOfWeek: 0, available: true, preferredStart: '09:00', preferredEnd: '17:00' },
+          ],
+        },
+      });
     expect(res.status).toBe(200);
     expect(res.body.data.recurring.slots).toHaveLength(1);
   });
@@ -117,7 +144,9 @@ describe('Staff availability', () => {
   });
 
   it('PUT /my/availability/override sets a week override', async () => {
-    const res = await request(app).put('/api/v1/my/availability/override').set(auth(staffToken))
+    const res = await request(app)
+      .put('/api/v1/my/availability/override')
+      .set(auth(staffToken))
       .send({ weekOf: '2026-06-17', slots: [{ dayOfWeek: 5, available: true }] });
     expect(res.status).toBe(200);
     expect(res.body.data.overrides.length).toBeGreaterThanOrEqual(1);
@@ -126,7 +155,9 @@ describe('Staff availability', () => {
 
 describe('Manager overview', () => {
   it('GET /locations/:id/availability shows staff + resolved (override beats recurring for that week)', async () => {
-    const res = await request(app).get(`/api/v1/locations/${location._id}/availability?weekOf=2026-06-17`).set(auth(ownerToken));
+    const res = await request(app)
+      .get(`/api/v1/locations/${location._id}/availability?weekOf=2026-06-17`)
+      .set(auth(ownerToken));
     expect(res.status).toBe(200);
     const entry = res.body.data.find((d) => d.staffId === staffMember._id.toString());
     expect(entry).toBeTruthy();
@@ -140,15 +171,23 @@ describe('Override request flow', () => {
   let requestId;
 
   it('owner proposes an override → pending', async () => {
-    const res = await request(app).post(`/api/v1/availability/${staffMember._id}/override-request`).set(auth(ownerToken))
-      .send({ weekOf: '2026-06-22', slots: [{ dayOfWeek: 1, available: true }], note: 'Cover needed' });
+    const res = await request(app)
+      .post(`/api/v1/availability/${staffMember._id}/override-request`)
+      .set(auth(ownerToken))
+      .send({
+        weekOf: '2026-06-22',
+        slots: [{ dayOfWeek: 1, available: true }],
+        note: 'Cover needed',
+      });
     expect(res.status).toBe(201);
     expect(res.body.data.status).toBe('pending');
     requestId = res.body.data.requestId;
   });
 
   it('staff confirms → override applied', async () => {
-    const res = await request(app).put(`/api/v1/availability/override-request/${requestId}`).set(auth(staffToken))
+    const res = await request(app)
+      .put(`/api/v1/availability/override-request/${requestId}`)
+      .set(auth(staffToken))
       .send({ decision: 'confirm' });
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('confirmed');
@@ -162,18 +201,27 @@ describe('Override request flow', () => {
   });
 
   it('confirming an already-reviewed request → 409', async () => {
-    const res = await request(app).put(`/api/v1/availability/override-request/${requestId}`).set(auth(staffToken))
+    const res = await request(app)
+      .put(`/api/v1/availability/override-request/${requestId}`)
+      .set(auth(staffToken))
       .send({ decision: 'confirm' });
     expect(res.status).toBe(409);
   });
 });
 
 describe('Tenancy', () => {
-  it('owner B cannot request override for owner A\'s staff → 404', async () => {
-    const ownerB = await User.create({ email: `p3-ownerB+${RUN_ID}@shiftwise.dev`, password: 'SecureP@ss1234', name: 'B', isVerified: true });
+  it("owner B cannot request override for owner A's staff → 404", async () => {
+    const ownerB = await User.create({
+      email: `p3-ownerB+${RUN_ID}@shiftwise.dev`,
+      password: 'SecureP@ss1234',
+      name: 'B',
+      isVerified: true,
+    });
     await Business.create({ name: 'P3 BizB', ownerId: ownerB._id });
     const tokenB = signToken(ownerB._id);
-    const res = await request(app).post(`/api/v1/availability/${staffMember._id}/override-request`).set(auth(tokenB))
+    const res = await request(app)
+      .post(`/api/v1/availability/${staffMember._id}/override-request`)
+      .set(auth(tokenB))
       .send({ weekOf: '2026-06-29', slots: [] });
     expect(res.status).toBe(404);
     // cleanup

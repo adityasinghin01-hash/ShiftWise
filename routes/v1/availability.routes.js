@@ -27,7 +27,12 @@ router.put('/my/availability', authed, availabilityController.updateMyAvailabili
 router.put('/my/availability/override', authed, availabilityController.setMyOverride);
 
 // ── Owner: propose an override for a staff member ──
-router.post('/availability/:staffId/override-request', authed, requireOwner, availabilityController.requestOverride);
+router.post(
+  '/availability/:staffId/override-request',
+  authed,
+  requireOwner,
+  availabilityController.requestOverride
+);
 
 // ── Staff: confirm/decline a proposed override ──
 router.put('/availability/override-request/:id', authed, availabilityController.reviewOverride);

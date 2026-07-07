@@ -10,10 +10,10 @@
 const crypto = require('crypto');
 const StaffMember = require('../models/StaffMember');
 const StaffInvite = require('../models/StaffInvite');
-const Shift       = require('../models/Shift');
-const hashToken   = require('../utils/hashToken');
+const Shift = require('../models/Shift');
+const hashToken = require('../utils/hashToken');
 const emailService = require('../services/emailService');
-const logger      = require('../config/logger');
+const logger = require('../config/logger');
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -58,7 +58,9 @@ async function issueInvite(staff, business, inviterName) {
  */
 exports.listStaff = async (req, res, next) => {
   try {
-    const staff = await StaffMember.find({ businessId: req.business._id, isActive: true }).sort({ createdAt: 1 });
+    const staff = await StaffMember.find({ businessId: req.business._id, isActive: true }).sort({
+      createdAt: 1,
+    });
     res.status(200).json({ success: true, count: staff.length, data: staff });
   } catch (err) {
     logger.error('Error in listStaff:', err);
@@ -73,7 +75,17 @@ exports.listStaff = async (req, res, next) => {
  */
 exports.createStaff = async (req, res, next) => {
   try {
-    const { name, email, role, hourlyRate, maxHoursPerWeek, employmentType, manuallyManaged, locationIds, sendInvite } = req.body;
+    const {
+      name,
+      email,
+      role,
+      hourlyRate,
+      maxHoursPerWeek,
+      employmentType,
+      manuallyManaged,
+      locationIds,
+      sendInvite,
+    } = req.body;
 
     const staff = await StaffMember.create({
       businessId: req.business._id, // TENANCY: never from client
@@ -94,7 +106,11 @@ exports.createStaff = async (req, res, next) => {
       } catch (mailErr) {
         // Staff created, but invite email failed — surface a soft warning, not a hard fail.
         logger.error('Invite email failed for new staff:', mailErr.message);
-        return res.status(201).json({ success: true, data: staff, warning: 'Staff created but invite email failed to send.' });
+        return res.status(201).json({
+          success: true,
+          data: staff,
+          warning: 'Staff created but invite email failed to send.',
+        });
       }
     }
 
@@ -102,7 +118,11 @@ exports.createStaff = async (req, res, next) => {
   } catch (err) {
     // Duplicate email within the same business (unique index {businessId,email})
     if (err.code === 11000) {
-      return res.status(409).json({ success: false, message: 'A staff member with this email already exists.', request_id: req.id });
+      return res.status(409).json({
+        success: false,
+        message: 'A staff member with this email already exists.',
+        request_id: req.id,
+      });
     }
     logger.error('Error in createStaff:', err);
     next(err);
@@ -118,10 +138,20 @@ exports.bulkCreateStaff = async (req, res, next) => {
   try {
     const { rows, sendInvite, locationIds } = req.body;
     if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: 'rows must be a non-empty array.', request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: 'rows must be a non-empty array.',
+        request_id: req.id,
+      });
     }
     if (rows.length > 200) {
-      return res.status(422).json({ success: false, code: 'validation_failed', message: 'Cannot import more than 200 staff at once.', request_id: req.id });
+      return res.status(422).json({
+        success: false,
+        code: 'validation_failed',
+        message: 'Cannot import more than 200 staff at once.',
+        request_id: req.id,
+      });
     }
 
     const created = [];
@@ -142,17 +172,23 @@ exports.bulkCreateStaff = async (req, res, next) => {
           role: row.role || 'staff',
           // Assign to a location so staff can set availability / be scheduled.
           // Per-row locationIds win; otherwise fall back to the shared body value.
-          locationIds: Array.isArray(row.locationIds) ? row.locationIds
-                     : (Array.isArray(locationIds) ? locationIds : []),
+          locationIds: Array.isArray(row.locationIds)
+            ? row.locationIds
+            : Array.isArray(locationIds)
+              ? locationIds
+              : [],
           accountStatus: 'none',
         });
         if (sendInvite) {
-          try { await issueInvite(staff, req.business, req.user.name); }
-          catch (mailErr) { logger.error('Bulk invite email failed:', mailErr.message); }
+          try {
+            await issueInvite(staff, req.business, req.user.name);
+          } catch (mailErr) {
+            logger.error('Bulk invite email failed:', mailErr.message);
+          }
         }
         created.push(staff);
       } catch (rowErr) {
-        const reason = rowErr.code === 11000 ? 'duplicate email' : (rowErr.message || 'failed');
+        const reason = rowErr.code === 11000 ? 'duplicate email' : rowErr.message || 'failed';
         errors.push({ row: i, reason });
       }
     }
@@ -172,9 +208,22 @@ exports.bulkCreateStaff = async (req, res, next) => {
 exports.updateStaff = async (req, res, next) => {
   try {
     const staff = await StaffMember.findOne({ _id: req.params.id, businessId: req.business._id });
-    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found', request_id: req.id });
+    if (!staff)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found', request_id: req.id });
 
-    const editable = ['name', 'role', 'hourlyRate', 'maxHoursPerWeek', 'employmentType', 'manuallyManaged', 'forceTrustCover', 'locationIds', 'phone'];
+    const editable = [
+      'name',
+      'role',
+      'hourlyRate',
+      'maxHoursPerWeek',
+      'employmentType',
+      'manuallyManaged',
+      'forceTrustCover',
+      'locationIds',
+      'phone',
+    ];
     for (const field of editable) {
       if (req.body[field] !== undefined) staff[field] = req.body[field];
     }
@@ -194,7 +243,10 @@ exports.updateStaff = async (req, res, next) => {
 exports.deleteStaff = async (req, res, next) => {
   try {
     const staff = await StaffMember.findOne({ _id: req.params.id, businessId: req.business._id });
-    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found', request_id: req.id });
+    if (!staff)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found', request_id: req.id });
 
     staff.isActive = false;
     await staff.save();
@@ -213,9 +265,16 @@ exports.deleteStaff = async (req, res, next) => {
 exports.inviteStaff = async (req, res, next) => {
   try {
     const staff = await StaffMember.findOne({ _id: req.params.id, businessId: req.business._id });
-    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found', request_id: req.id });
+    if (!staff)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found', request_id: req.id });
     if (staff.accountStatus === 'active') {
-      return res.status(409).json({ success: false, message: 'This staff member has already joined.', request_id: req.id });
+      return res.status(409).json({
+        success: false,
+        message: 'This staff member has already joined.',
+        request_id: req.id,
+      });
     }
 
     await issueInvite(staff, req.business, req.user.name);
@@ -235,7 +294,10 @@ exports.inviteStaff = async (req, res, next) => {
 exports.notifyStaff = async (req, res, next) => {
   try {
     const staff = await StaffMember.findOne({ _id: req.params.id, businessId: req.business._id });
-    if (!staff) return res.status(404).json({ success: false, message: 'Staff member not found', request_id: req.id });
+    if (!staff)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found', request_id: req.id });
 
     // Pull this staff's upcoming shifts (next 14 days) to include in the email.
     const now = new Date();
@@ -244,11 +306,17 @@ exports.notifyStaff = async (req, res, next) => {
       businessId: req.business._id,
       staffId: staff._id,
       date: { $gte: now, $lte: in14 },
-    }).sort({ date: 1 }).limit(10);
+    })
+      .sort({ date: 1 })
+      .limit(10);
 
     const shiftsHtml = shifts.length
-      ? `<table style="width:100%;border-collapse:collapse;margin:16px 0">${shifts.map((s) =>
-          `<tr><td style="padding:8px;border-bottom:1px solid rgba(78,168,100,0.15);color:#b8a98a;font-size:14px">${new Date(s.date).toDateString()} · ${s.startTime}–${s.endTime}</td></tr>`).join('')}</table>`
+      ? `<table style="width:100%;border-collapse:collapse;margin:16px 0">${shifts
+          .map(
+            (s) =>
+              `<tr><td style="padding:8px;border-bottom:1px solid rgba(78,168,100,0.15);color:#b8a98a;font-size:14px">${new Date(s.date).toDateString()} · ${s.startTime}–${s.endTime}</td></tr>`
+          )
+          .join('')}</table>`
       : '';
 
     await emailService.sendEmergencyShiftEmail(staff.email, {

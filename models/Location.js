@@ -12,10 +12,10 @@ const mongoose = require('mongoose');
 // A named time slot (e.g. Morning 08:00–14:00) with a colour for the UI grid.
 const shiftTypeSchema = new mongoose.Schema(
   {
-    name:      { type: String, required: true, trim: true, maxlength: 50 },
-    startTime: { type: String, required: true },  // 'HH:MM' 24h in location tz
-    endTime:   { type: String, required: true },  // 'HH:MM' 24h in location tz
-    color:     { type: String, default: '#4ea864' }, // hex for UI chip color
+    name: { type: String, required: true, trim: true, maxlength: 50 },
+    startTime: { type: String, required: true }, // 'HH:MM' 24h in location tz
+    endTime: { type: String, required: true }, // 'HH:MM' 24h in location tz
+    color: { type: String, default: '#4ea864' }, // hex for UI chip color
   },
   { _id: true }
 );
@@ -27,13 +27,13 @@ const shiftTypeSchema = new mongoose.Schema(
 const settingsSchema = new mongoose.Schema(
   {
     // Core scheduling rules (always used)
-    shiftTypes:        { type: [shiftTypeSchema], default: [] },
-    minStaffPerShift:  { type: Number, default: 1, min: 0 },
-    maxStaffPerShift:  { type: Number, default: 5, min: 0 },
-    maxHoursPerWeek:   { type: Number, default: 0 }, // 0 = no cap
+    shiftTypes: { type: [shiftTypeSchema], default: [] },
+    minStaffPerShift: { type: Number, default: 1, min: 0 },
+    maxStaffPerShift: { type: Number, default: 5, min: 0 },
+    maxHoursPerWeek: { type: Number, default: 0 }, // 0 = no cap
 
     // Advanced rules (optional — default to 0/[] = not enforced)
-    minRestHours:       { type: Number, default: 0 }, // min rest between shifts
+    minRestHours: { type: Number, default: 0 }, // min rest between shifts
     maxDaysConsecutive: { type: Number, default: 0 }, // max consecutive work days
 
     // Incompatible pairs: staff who must not share the same shift slot.
@@ -63,7 +63,7 @@ const locationSchema = new mongoose.Schema(
     },
 
     // ── Identity ──────────────────────────────────────────
-    name:    { type: String, required: true, trim: true, maxlength: 100 },
+    name: { type: String, required: true, trim: true, maxlength: 100 },
     address: { type: String, trim: true, maxlength: 255 },
 
     // Override the business-level timezone for this specific location (optional)

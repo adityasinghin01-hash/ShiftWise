@@ -18,10 +18,10 @@ jest.mock('../services/emailService', () => ({
   sendEmergencyShiftEmail: jest.fn().mockResolvedValue({}),
 }));
 
-const request  = require('supertest');
+const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt      = require('jsonwebtoken');
-const config   = require('../config/config');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 const emailService = require('../services/emailService');
 
 const MONGO_URI = process.env.MONGO_URI_TEST;
@@ -33,7 +33,8 @@ let ownerA, ownerB, tokenA, tokenB, bizA, bizB;
 const EMAIL_A = `p2-owner-a+${RUN_ID}@shiftwise.dev`;
 const EMAIL_B = `p2-owner-b+${RUN_ID}@shiftwise.dev`;
 
-const signToken = (id) => jwt.sign({ id }, config.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
+const signToken = (id) =>
+  jwt.sign({ id }, config.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
 const auth = (t) => ({ Authorization: `Bearer ${t}` });
 
 beforeAll(async () => {
@@ -47,8 +48,18 @@ beforeAll(async () => {
   StaffMember = require('../models/StaffMember');
   StaffInvite = require('../models/StaffInvite');
 
-  ownerA = await User.create({ email: EMAIL_A, password: 'SecureP@ss1234', name: 'Owner A', isVerified: true });
-  ownerB = await User.create({ email: EMAIL_B, password: 'SecureP@ss1234', name: 'Owner B', isVerified: true });
+  ownerA = await User.create({
+    email: EMAIL_A,
+    password: 'SecureP@ss1234',
+    name: 'Owner A',
+    isVerified: true,
+  });
+  ownerB = await User.create({
+    email: EMAIL_B,
+    password: 'SecureP@ss1234',
+    name: 'Owner B',
+    isVerified: true,
+  });
   tokenA = signToken(ownerA._id);
   tokenB = signToken(ownerB._id);
   bizA = await Business.create({ name: 'Biz A', ownerId: ownerA._id });
@@ -65,7 +76,9 @@ afterAll(async () => {
     await Business.deleteMany({ _id: { $in: bizIds } });
     // remove users created by join flow + owners
     await User.deleteMany({ email: { $in: [EMAIL_A, EMAIL_B, ...staffEmails] } });
-  } catch (err) { console.warn('Teardown warning:', err.message); }
+  } catch (err) {
+    console.warn('Teardown warning:', err.message);
+  }
   if (mongoose.connection.readyState !== 0) await mongoose.connection.close();
 });
 
@@ -76,8 +89,15 @@ describe('Staff CRUD', () => {
   let staffId;
 
   it('POST /staff creates a record (status none, no invite)', async () => {
-    const res = await request(app).post('/api/v1/staff').set(auth(tokenA))
-      .send({ name: 'Alex', email: `alex+${RUN_ID}@shiftwise.dev`, role: 'barista', hourlyRate: 250 });
+    const res = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
+      .send({
+        name: 'Alex',
+        email: `alex+${RUN_ID}@shiftwise.dev`,
+        role: 'barista',
+        hourlyRate: 250,
+      });
     expect(res.status).toBe(201);
     expect(res.body.data.accountStatus).toBe('none');
     expect(emailService.sendStaffInviteEmail).not.toHaveBeenCalled();
@@ -85,18 +105,25 @@ describe('Staff CRUD', () => {
   });
 
   it('POST /staff duplicate email in same business → 409', async () => {
-    const res = await request(app).post('/api/v1/staff').set(auth(tokenA))
+    const res = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
       .send({ name: 'Alex Dup', email: `alex+${RUN_ID}@shiftwise.dev` });
     expect(res.status).toBe(409);
   });
 
   it('POST /staff with no email → 422', async () => {
-    const res = await request(app).post('/api/v1/staff').set(auth(tokenA)).send({ name: 'NoEmail' });
+    const res = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
+      .send({ name: 'NoEmail' });
     expect(res.status).toBe(422);
   });
 
   it('PUT /staff/:id persists manuallyManaged toggle', async () => {
-    const res = await request(app).put(`/api/v1/staff/${staffId}`).set(auth(tokenA))
+    const res = await request(app)
+      .put(`/api/v1/staff/${staffId}`)
+      .set(auth(tokenA))
       .send({ manuallyManaged: true, hourlyRate: 300 });
     expect(res.status).toBe(200);
     expect(res.body.data.manuallyManaged).toBe(true);
@@ -119,14 +146,17 @@ describe('Staff CRUD', () => {
 // ──────────────────────────────────────────────────────────
 describe('Bulk import', () => {
   it('POST /staff/bulk creates valid rows and reports errors', async () => {
-    const res = await request(app).post('/api/v1/staff/bulk').set(auth(tokenA)).send({
-      rows: [
-        { name: 'Bulk One', email: `bulk1+${RUN_ID}@shiftwise.dev` },
-        { name: 'Bulk Two', email: `bulk2+${RUN_ID}@shiftwise.dev` },
-        { name: 'No Email' }, // invalid
-      ],
-      sendInvite: false,
-    });
+    const res = await request(app)
+      .post('/api/v1/staff/bulk')
+      .set(auth(tokenA))
+      .send({
+        rows: [
+          { name: 'Bulk One', email: `bulk1+${RUN_ID}@shiftwise.dev` },
+          { name: 'Bulk Two', email: `bulk2+${RUN_ID}@shiftwise.dev` },
+          { name: 'No Email' }, // invalid
+        ],
+        sendInvite: false,
+      });
     expect(res.status).toBe(201);
     expect(res.body.data.created.length).toBe(2);
     expect(res.body.data.errors.length).toBe(1);
@@ -140,7 +170,9 @@ describe('Invite → Accept flow', () => {
   const inviteeEmail = `invitee+${RUN_ID}@shiftwise.dev`;
 
   it('POST /staff with sendInvite=true issues an invite + emails it', async () => {
-    const res = await request(app).post('/api/v1/staff').set(auth(tokenA))
+    const res = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
       .send({ name: 'Invitee', email: inviteeEmail, sendInvite: true });
     expect(res.status).toBe(201);
     expect(res.body.data.accountStatus).toBe('invited');
@@ -171,7 +203,8 @@ describe('Invite → Accept flow', () => {
   });
 
   it('POST /join/accept creates a user, marks staff active, returns a token', async () => {
-    const res = await request(app).post('/api/v1/join/accept')
+    const res = await request(app)
+      .post('/api/v1/join/accept')
       .send({ token: rawToken, password: 'JoinP@ssword12', name: 'Invitee Joined' });
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeTruthy();
@@ -183,19 +216,27 @@ describe('Invite → Accept flow', () => {
   });
 
   it('POST /join/accept with the same (now used) token → 400', async () => {
-    const res = await request(app).post('/api/v1/join/accept')
+    const res = await request(app)
+      .post('/api/v1/join/accept')
       .send({ token: rawToken, password: 'JoinP@ssword12' });
     expect(res.status).toBe(400);
   });
 
   it('expired invite is rejected', async () => {
     // Create staff + invite, then force-expire it
-    const s = await request(app).post('/api/v1/staff').set(auth(tokenA))
+    const s = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
       .send({ name: 'Expired', email: `expired+${RUN_ID}@shiftwise.dev`, sendInvite: true });
     const raw = emailService.sendStaffInviteEmail.mock.calls.at(-1)[1];
-    await StaffInvite.updateOne({ staffId: s.body.data._id }, { expiresAt: new Date(Date.now() - 1000) });
+    await StaffInvite.updateOne(
+      { staffId: s.body.data._id },
+      { expiresAt: new Date(Date.now() - 1000) }
+    );
 
-    const res = await request(app).post('/api/v1/join/accept').send({ token: raw, password: 'JoinP@ssword12' });
+    const res = await request(app)
+      .post('/api/v1/join/accept')
+      .send({ token: raw, password: 'JoinP@ssword12' });
     expect(res.status).toBe(400);
   });
 });
@@ -204,9 +245,16 @@ describe('Invite → Accept flow', () => {
 describe('Email-match fallback', () => {
   it('links a pre-existing user instead of creating a duplicate', async () => {
     const existingEmail = `existing+${RUN_ID}@shiftwise.dev`;
-    const existingUser = await User.create({ email: existingEmail, password: 'SecureP@ss1234', name: 'Existing', isVerified: true });
+    const existingUser = await User.create({
+      email: existingEmail,
+      password: 'SecureP@ss1234',
+      name: 'Existing',
+      isVerified: true,
+    });
 
-    const s = await request(app).post('/api/v1/staff').set(auth(tokenA))
+    const s = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
       .send({ name: 'Existing', email: existingEmail, sendInvite: true });
     const raw = emailService.sendStaffInviteEmail.mock.calls.at(-1)[1];
 
@@ -226,9 +274,13 @@ describe('Email-match fallback', () => {
 // ──────────────────────────────────────────────────────────
 describe('Emergency notify', () => {
   it('POST /staff/:id/notify calls the mailer', async () => {
-    const s = await request(app).post('/api/v1/staff').set(auth(tokenA))
+    const s = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
       .send({ name: 'Notify Me', email: `notify+${RUN_ID}@shiftwise.dev` });
-    const res = await request(app).post(`/api/v1/staff/${s.body.data._id}/notify`).set(auth(tokenA))
+    const res = await request(app)
+      .post(`/api/v1/staff/${s.body.data._id}/notify`)
+      .set(auth(tokenA))
       .send({ message: 'Please cover the morning shift.' });
     expect(res.status).toBe(200);
     expect(res.body.data.sent).toBe(true);
@@ -240,27 +292,35 @@ describe('Emergency notify', () => {
 describe('Tenancy isolation', () => {
   let aStaffId;
   beforeAll(async () => {
-    const s = await request(app).post('/api/v1/staff').set(auth(tokenA))
+    const s = await request(app)
+      .post('/api/v1/staff')
+      .set(auth(tokenA))
       .send({ name: 'A Staff', email: `astaff+${RUN_ID}@shiftwise.dev` });
     aStaffId = s.body.data._id;
   });
 
-  it('Owner B CANNOT update Owner A\'s staff → 404', async () => {
-    const res = await request(app).put(`/api/v1/staff/${aStaffId}`).set(auth(tokenB)).send({ name: 'Hijack' });
+  it("Owner B CANNOT update Owner A's staff → 404", async () => {
+    const res = await request(app)
+      .put(`/api/v1/staff/${aStaffId}`)
+      .set(auth(tokenB))
+      .send({ name: 'Hijack' });
     expect(res.status).toBe(404);
   });
 
-  it('Owner B CANNOT invite Owner A\'s staff → 404', async () => {
+  it("Owner B CANNOT invite Owner A's staff → 404", async () => {
     const res = await request(app).post(`/api/v1/staff/${aStaffId}/invite`).set(auth(tokenB));
     expect(res.status).toBe(404);
   });
 
-  it('Owner B CANNOT notify Owner A\'s staff → 404', async () => {
-    const res = await request(app).post(`/api/v1/staff/${aStaffId}/notify`).set(auth(tokenB)).send({});
+  it("Owner B CANNOT notify Owner A's staff → 404", async () => {
+    const res = await request(app)
+      .post(`/api/v1/staff/${aStaffId}/notify`)
+      .set(auth(tokenB))
+      .send({});
     expect(res.status).toBe(404);
   });
 
-  it('Owner B\'s staff list does not include Owner A\'s staff', async () => {
+  it("Owner B's staff list does not include Owner A's staff", async () => {
     const res = await request(app).get('/api/v1/staff').set(auth(tokenB));
     expect(res.status).toBe(200);
     expect(res.body.data.find((s) => s._id === aStaffId)).toBeUndefined();

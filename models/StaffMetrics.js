@@ -24,23 +24,23 @@ const staffMetricsSchema = new mongoose.Schema(
 
     // The calendar month this record covers
     period: {
-      year:  { type: Number, required: true },
+      year: { type: Number, required: true },
       month: { type: Number, required: true, min: 1, max: 12 },
     },
 
     // ── Hour buckets ──────────────────────────────────────
-    totalHours:        { type: Number, default: 0, min: 0 },
-    weekendHours:      { type: Number, default: 0, min: 0 }, // Sat + Sun shifts
-    nightHours:        { type: Number, default: 0, min: 0 }, // shifts ending ≥22:00
+    totalHours: { type: Number, default: 0, min: 0 },
+    weekendHours: { type: Number, default: 0, min: 0 }, // Sat + Sun shifts
+    nightHours: { type: Number, default: 0, min: 0 }, // shifts ending ≥22:00
     earlyMorningHours: { type: Number, default: 0, min: 0 }, // shifts starting ≤06:00
 
     // ── Attendance counters ───────────────────────────────
-    absences:     { type: Number, default: 0, min: 0 }, // scheduled but absent
+    absences: { type: Number, default: 0, min: 0 }, // scheduled but absent
     lateArrivals: { type: Number, default: 0, min: 0 },
-    noShows:      { type: Number, default: 0, min: 0 }, // no-show (counts toward reliability drop)
+    noShows: { type: Number, default: 0, min: 0 }, // no-show (counts toward reliability drop)
 
     // ── Swap / cover activity ─────────────────────────────
-    swapsRequested:  { type: Number, default: 0, min: 0 },
+    swapsRequested: { type: Number, default: 0, min: 0 },
     coversCompleted: { type: Number, default: 0, min: 0 }, // times stepped in to cover
 
     // ── Time off ──────────────────────────────────────────

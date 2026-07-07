@@ -14,34 +14,40 @@
 const mongoose = require('mongoose');
 
 // ── Models under test ─────────────────────────────────────
-const Business         = require('../models/Business');
-const Location         = require('../models/Location');
-const StaffMember      = require('../models/StaffMember');
-const StaffInvite      = require('../models/StaffInvite');
-const Availability     = require('../models/Availability');
-const Schedule         = require('../models/Schedule');
-const Shift            = require('../models/Shift');
-const TimeOffRequest   = require('../models/TimeOffRequest');
+const Business = require('../models/Business');
+const Location = require('../models/Location');
+const StaffMember = require('../models/StaffMember');
+const StaffInvite = require('../models/StaffInvite');
+const Availability = require('../models/Availability');
+const Schedule = require('../models/Schedule');
+const Shift = require('../models/Shift');
+const TimeOffRequest = require('../models/TimeOffRequest');
 const ShiftSwapRequest = require('../models/ShiftSwapRequest');
 const ScheduleTemplate = require('../models/ScheduleTemplate');
-const Notification     = require('../models/Notification');
-const StaffMetrics     = require('../models/StaffMetrics');
+const Notification = require('../models/Notification');
+const StaffMetrics = require('../models/StaffMetrics');
 
 // ── Middleware under test ──────────────────────────────────
-const resolveBusiness  = require('../middleware/resolveBusiness');
-const requireOwner     = require('../middleware/requireOwner');
+const resolveBusiness = require('../middleware/resolveBusiness');
+const requireOwner = require('../middleware/requireOwner');
 const requireStaffSelf = require('../middleware/requireStaffSelf');
 
 // ── Service under test ────────────────────────────────────
-const { checkAssignment, reliabilityScore, AUTO_CLAIM_THRESHOLD, FAVORITISM_GAP, HARD, SOFT } =
-  require('../services/schedulerService');
+const {
+  checkAssignment,
+  reliabilityScore,
+  AUTO_CLAIM_THRESHOLD,
+  FAVORITISM_GAP,
+  HARD,
+  SOFT,
+} = require('../services/schedulerService');
 
 // ── Helpers ───────────────────────────────────────────────
 /** Build a minimal mock Express res object that captures the status+json call */
 const mockRes = () => {
   const res = {};
   res.status = jest.fn().mockReturnValue(res);
-  res.json   = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
   return res;
 };
 
@@ -101,7 +107,8 @@ describe('Models — required fields + enum validation', () => {
     it('rejects invalid accountStatus', () => {
       const doc = new StaffMember({
         businessId: new mongoose.Types.ObjectId(),
-        name: 'X', email: 'x@x.com',
+        name: 'X',
+        email: 'x@x.com',
         accountStatus: 'banana',
       });
       const err = doc.validateSync();
@@ -109,7 +116,9 @@ describe('Models — required fields + enum validation', () => {
     });
     it('defaults accountStatus to none', () => {
       const doc = new StaffMember({
-        businessId: new mongoose.Types.ObjectId(), name: 'X', email: 'x@x.com',
+        businessId: new mongoose.Types.ObjectId(),
+        name: 'X',
+        email: 'x@x.com',
       });
       expect(doc.accountStatus).toBe('none');
     });
@@ -128,7 +137,8 @@ describe('Models — required fields + enum validation', () => {
       const doc = new Schedule({
         businessId: new mongoose.Types.ObjectId(),
         locationId: new mongoose.Types.ObjectId(),
-        periodStart: new Date(), periodEnd: new Date(),
+        periodStart: new Date(),
+        periodEnd: new Date(),
       });
       expect(doc.status).toBe('draft');
     });
@@ -136,7 +146,8 @@ describe('Models — required fields + enum validation', () => {
       const doc = new Schedule({
         businessId: new mongoose.Types.ObjectId(),
         locationId: new mongoose.Types.ObjectId(),
-        periodStart: new Date(), periodEnd: new Date(),
+        periodStart: new Date(),
+        periodEnd: new Date(),
         status: 'invalid',
       });
       expect(doc.validateSync().errors.status).toBeDefined();
@@ -147,17 +158,34 @@ describe('Models — required fields + enum validation', () => {
     it('requires scheduleId, businessId, locationId, staffId, date, startTime, endTime', () => {
       const doc = new Shift({});
       const err = doc.validateSync();
-      ['scheduleId','businessId','locationId','staffId','date','startTime','endTime']
-        .forEach(field => expect(err.errors[field]).toBeDefined());
+      ['scheduleId', 'businessId', 'locationId', 'staffId', 'date', 'startTime', 'endTime'].forEach(
+        (field) => expect(err.errors[field]).toBeDefined()
+      );
     });
     it('defaults attendance to unmarked', () => {
       const id = () => new mongoose.Types.ObjectId();
-      const doc = new Shift({ scheduleId:id(), businessId:id(), locationId:id(), staffId:id(), date:new Date(), startTime:'08:00', endTime:'14:00' });
+      const doc = new Shift({
+        scheduleId: id(),
+        businessId: id(),
+        locationId: id(),
+        staffId: id(),
+        date: new Date(),
+        startTime: '08:00',
+        endTime: '14:00',
+      });
       expect(doc.attendance).toBe('unmarked');
     });
     it('defaults locked to false', () => {
       const id = () => new mongoose.Types.ObjectId();
-      const doc = new Shift({ scheduleId:id(), businessId:id(), locationId:id(), staffId:id(), date:new Date(), startTime:'08:00', endTime:'14:00' });
+      const doc = new Shift({
+        scheduleId: id(),
+        businessId: id(),
+        locationId: id(),
+        staffId: id(),
+        date: new Date(),
+        startTime: '08:00',
+        endTime: '14:00',
+      });
       expect(doc.locked).toBe(false);
     });
   });
@@ -167,7 +195,9 @@ describe('Models — required fields + enum validation', () => {
       const doc = new Notification({
         userId: new mongoose.Types.ObjectId(),
         businessId: new mongoose.Types.ObjectId(),
-        type: 'unknown_type', title: 'T', body: 'B',
+        type: 'unknown_type',
+        title: 'T',
+        body: 'B',
       });
       expect(doc.validateSync().errors.type).toBeDefined();
     });
@@ -175,7 +205,9 @@ describe('Models — required fields + enum validation', () => {
       const doc = new Notification({
         userId: new mongoose.Types.ObjectId(),
         businessId: new mongoose.Types.ObjectId(),
-        type: 'badge_awarded', title: 'T', body: 'B',
+        type: 'badge_awarded',
+        title: 'T',
+        body: 'B',
       });
       expect(doc.readAt).toBeNull();
     });
@@ -202,9 +234,18 @@ describe('Tenancy isolation', () => {
   // business-owned model. The actual DB-level isolation test (two real businesses)
   // runs in integration tests — here we verify the schema contract.
 
-  const BUSINESS_OWNED = [Location, StaffMember, Schedule, Shift, TimeOffRequest, ShiftSwapRequest, ScheduleTemplate, Notification];
+  const BUSINESS_OWNED = [
+    Location,
+    StaffMember,
+    Schedule,
+    Shift,
+    TimeOffRequest,
+    ShiftSwapRequest,
+    ScheduleTemplate,
+    Notification,
+  ];
 
-  BUSINESS_OWNED.forEach(Model => {
+  BUSINESS_OWNED.forEach((Model) => {
     it(`${Model.modelName} schema has indexed businessId field`, () => {
       const schema = Model.schema;
       // businessId must exist in the schema paths
@@ -258,9 +299,9 @@ describe('resolveBusiness middleware', () => {
 
   it('resolves staff when no owned business but StaffMember found', async () => {
     const userId = new mongoose.Types.ObjectId();
-    const bizId  = new mongoose.Types.ObjectId();
+    const bizId = new mongoose.Types.ObjectId();
     const fakeStaff = { _id: new mongoose.Types.ObjectId(), businessId: bizId, userId };
-    const fakeBiz   = { _id: bizId };
+    const fakeBiz = { _id: bizId };
 
     jest.spyOn(Business, 'findOne').mockResolvedValueOnce(null);
     jest.spyOn(StaffMember, 'findOne').mockResolvedValueOnce(fakeStaff);
@@ -347,7 +388,7 @@ describe('requireStaffSelf middleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('staff cannot access another member\'s record', () => {
+  it("staff cannot access another member's record", () => {
     const otherId = new mongoose.Types.ObjectId();
     const req = mockReq({
       membership: 'staff',

@@ -18,7 +18,11 @@ const { authLimiter } = require('../../middleware/rateLimiter');
 
 const createStaffSchema = validate([
   body('name').trim().notEmpty().withMessage('Name is required.').isLength({ max: 100 }),
-  body('email').trim().isEmail().withMessage('A valid email is required.').normalizeEmail({ gmail_remove_dots: false }),
+  body('email')
+    .trim()
+    .isEmail()
+    .withMessage('A valid email is required.')
+    .normalizeEmail({ gmail_remove_dots: false }),
   body('hourlyRate').optional().isFloat({ min: 0 }),
   body('maxHoursPerWeek').optional().isInt({ min: 0, max: 168 }),
 ]);

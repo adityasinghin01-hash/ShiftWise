@@ -11,11 +11,11 @@ const mongoose = require('mongoose');
 // A single day's availability window
 const daySlotSchema = new mongoose.Schema(
   {
-    dayOfWeek:      { type: Number, required: true, min: 0, max: 6 }, // 0=Mon … 6=Sun
-    available:      { type: Boolean, default: true },
+    dayOfWeek: { type: Number, required: true, min: 0, max: 6 }, // 0=Mon … 6=Sun
+    available: { type: Boolean, default: true },
     preferredStart: { type: String, default: null }, // 'HH:MM' or null = no preference
-    preferredEnd:   { type: String, default: null },
-    note:           { type: String, maxlength: 200 },
+    preferredEnd: { type: String, default: null },
+    note: { type: String, maxlength: 200 },
   },
   { _id: false }
 );
@@ -24,7 +24,7 @@ const daySlotSchema = new mongoose.Schema(
 const overrideSchema = new mongoose.Schema(
   {
     weekOf: { type: Date, required: true }, // Monday of the week (UTC midnight)
-    slots:  { type: [daySlotSchema], default: [] },
+    slots: { type: [daySlotSchema], default: [] },
   },
   { _id: true }
 );
@@ -33,12 +33,12 @@ const overrideSchema = new mongoose.Schema(
 // Only takes effect (moves into `overrides`) once the staff member confirms.
 const pendingOverrideSchema = new mongoose.Schema(
   {
-    weekOf:      { type: Date, required: true },
-    slots:       { type: [daySlotSchema], default: [] },
-    note:        { type: String, maxlength: 300 },
+    weekOf: { type: Date, required: true },
+    slots: { type: [daySlotSchema], default: [] },
+    note: { type: String, maxlength: 300 },
     requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // the manager
-    status:      { type: String, enum: ['pending', 'confirmed', 'declined'], default: 'pending' },
-    createdAt:   { type: Date, default: Date.now },
+    status: { type: String, enum: ['pending', 'confirmed', 'declined'], default: 'pending' },
+    createdAt: { type: Date, default: Date.now },
   },
   { _id: true }
 );

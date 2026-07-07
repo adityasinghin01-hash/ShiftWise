@@ -13,9 +13,9 @@ const BADGE_TYPES = ['team_player', 'always_on_time', 'cover_hero', 'top_perform
 
 const badgeSchema = new mongoose.Schema(
   {
-    type:       { type: String, enum: BADGE_TYPES, required: true },
-    awardedAt:  { type: Date, default: Date.now },
-    awardedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    type: { type: String, enum: BADGE_TYPES, required: true },
+    awardedAt: { type: Date, default: Date.now },
+    awardedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { _id: false }
 );
@@ -39,11 +39,11 @@ const staffMemberSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
-      index: true,  // needed for resolveBusiness middleware lookup
+      index: true, // needed for resolveBusiness middleware lookup
     },
 
     // ── Identity ──────────────────────────────────────────
-    name:  { type: String, required: true, trim: true, maxlength: 100 },
+    name: { type: String, required: true, trim: true, maxlength: 100 },
     email: { type: String, required: true, lowercase: true, trim: true },
     phone: { type: String, trim: true, maxlength: 30 },
 
@@ -55,9 +55,9 @@ const staffMemberSchema = new mongoose.Schema(
     },
 
     // ── Employment ────────────────────────────────────────
-    hourlyRate:       { type: Number, default: 0, min: 0 },  // for cost estimate in analytics
-    employmentType:   { type: String, enum: ['full-time', 'part-time', 'casual'], default: 'casual' },
-    maxHoursPerWeek:  { type: Number, default: 0, min: 0 }, // 0 = use location rule as cap
+    hourlyRate: { type: Number, default: 0, min: 0 }, // for cost estimate in analytics
+    employmentType: { type: String, enum: ['full-time', 'part-time', 'casual'], default: 'casual' },
+    maxHoursPerWeek: { type: Number, default: 0, min: 0 }, // 0 = use location rule as cap
 
     // ── Scheduling flags ──────────────────────────────────
     // manuallyManaged: manager controls this person's availability directly
@@ -83,8 +83,8 @@ const staffMemberSchema = new mongoose.Schema(
     badges: { type: [badgeSchema], default: [] },
 
     // ── Soft delete ───────────────────────────────────────
-    isActive:  { type: Boolean, default: true },
-    joinedAt:  { type: Date, default: null },
+    isActive: { type: Boolean, default: true },
+    joinedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

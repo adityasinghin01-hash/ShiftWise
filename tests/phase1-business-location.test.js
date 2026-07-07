@@ -11,10 +11,10 @@
 //
 // Uses real MONGO_URI_TEST + Express app via supertest, signing JWTs directly.
 
-const request  = require('supertest');
+const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt      = require('jsonwebtoken');
-const config   = require('../config/config');
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
 
 const MONGO_URI = process.env.MONGO_URI_TEST;
 const RUN_ID = Date.now();
@@ -34,14 +34,24 @@ beforeAll(async () => {
   if (!MONGO_URI) throw new Error('MONGO_URI_TEST required');
   if (mongoose.connection.readyState === 0) await mongoose.connect(MONGO_URI);
 
-  app      = require('../app');
-  User     = require('../models/User');
+  app = require('../app');
+  User = require('../models/User');
   Business = require('../models/Business');
   Location = require('../models/Location');
 
   // Verified users (authMiddleware requires isVerified)
-  ownerA = await User.create({ email: OWNER_A_EMAIL, password: 'SecureP@ss1234', name: 'Owner A', isVerified: true });
-  ownerB = await User.create({ email: OWNER_B_EMAIL, password: 'SecureP@ss1234', name: 'Owner B', isVerified: true });
+  ownerA = await User.create({
+    email: OWNER_A_EMAIL,
+    password: 'SecureP@ss1234',
+    name: 'Owner A',
+    isVerified: true,
+  });
+  ownerB = await User.create({
+    email: OWNER_B_EMAIL,
+    password: 'SecureP@ss1234',
+    name: 'Owner B',
+    isVerified: true,
+  });
   tokenA = signToken(ownerA._id);
   tokenB = signToken(ownerB._id);
 });
@@ -86,7 +96,7 @@ describe('Business', () => {
     expect(res.status).toBe(422);
   });
 
-  it('GET /business returns the caller\'s business', async () => {
+  it("GET /business returns the caller's business", async () => {
     const res = await request(app).get('/api/v1/business').set(auth(tokenA));
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe('Cafe A');
@@ -96,7 +106,11 @@ describe('Business', () => {
     const res = await request(app)
       .put('/api/v1/business')
       .set(auth(tokenA))
-      .send({ name: 'Cafe A Renamed', settings: { currency: 'USD' }, onboarding: { completed: true } });
+      .send({
+        name: 'Cafe A Renamed',
+        settings: { currency: 'USD' },
+        onboarding: { completed: true },
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe('Cafe A Renamed');
@@ -143,7 +157,7 @@ describe('Locations', () => {
     expect(res.body.message).toMatch(/minStaffPerShift/);
   });
 
-  it('GET /locations lists only the caller\'s locations', async () => {
+  it("GET /locations lists only the caller's locations", async () => {
     const res = await request(app).get('/api/v1/locations').set(auth(tokenA));
     expect(res.status).toBe(200);
     expect(res.body.count).toBeGreaterThanOrEqual(1);
@@ -159,12 +173,12 @@ describe('Locations', () => {
   });
 
   // ── TENANCY ISOLATION ──────────────────────────────────
-  it('Owner B CANNOT read Owner A\'s location → 404', async () => {
+  it("Owner B CANNOT read Owner A's location → 404", async () => {
     const res = await request(app).get(`/api/v1/locations/${locationAId}`).set(auth(tokenB));
     expect(res.status).toBe(404); // scoped query: not found for B
   });
 
-  it('Owner B CANNOT update Owner A\'s location → 404', async () => {
+  it("Owner B CANNOT update Owner A's location → 404", async () => {
     const res = await request(app)
       .put(`/api/v1/locations/${locationAId}`)
       .set(auth(tokenB))
@@ -172,7 +186,7 @@ describe('Locations', () => {
     expect(res.status).toBe(404);
   });
 
-  it('Owner B CANNOT delete Owner A\'s location → 404', async () => {
+  it("Owner B CANNOT delete Owner A's location → 404", async () => {
     const res = await request(app).delete(`/api/v1/locations/${locationAId}`).set(auth(tokenB));
     expect(res.status).toBe(404);
   });

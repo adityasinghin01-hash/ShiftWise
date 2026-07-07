@@ -9,13 +9,13 @@
 
 'use strict';
 
-const User        = require('../models/User');
-const Business    = require('../models/Business');
+const User = require('../models/User');
+const Business = require('../models/Business');
 const StaffMember = require('../models/StaffMember');
 const StaffInvite = require('../models/StaffInvite');
-const hashToken   = require('../utils/hashToken');
+const hashToken = require('../utils/hashToken');
 const { generateAccessToken, generateRefreshToken } = require('../services/tokenService');
-const logger      = require('../config/logger');
+const logger = require('../config/logger');
 
 /**
  * Look up a valid (unexpired, unaccepted) invite by raw token.
@@ -26,7 +26,7 @@ async function findValidInvite(rawToken) {
   if (!rawToken) return null;
   const invite = await StaffInvite.findOne({ tokenHash: hashToken(rawToken) });
   if (!invite) return null;
-  if (invite.acceptedAt) return null;          // already used
+  if (invite.acceptedAt) return null; // already used
   if (invite.expiresAt < new Date()) return null; // expired
   return invite;
 }
@@ -40,7 +40,11 @@ exports.validateInvite = async (req, res, next) => {
   try {
     const invite = await findValidInvite(req.query.token);
     if (!invite) {
-      return res.status(400).json({ success: false, message: 'This invite is invalid or has expired.', request_id: req.id });
+      return res.status(400).json({
+        success: false,
+        message: 'This invite is invalid or has expired.',
+        request_id: req.id,
+      });
     }
     const business = await Business.findById(invite.businessId).select('name');
     res.status(200).json({
@@ -64,15 +68,27 @@ exports.acceptInvite = async (req, res, next) => {
 
     const invite = await findValidInvite(token);
     if (!invite) {
-      return res.status(400).json({ success: false, message: 'This invite is invalid or has expired.', request_id: req.id });
+      return res.status(400).json({
+        success: false,
+        message: 'This invite is invalid or has expired.',
+        request_id: req.id,
+      });
     }
 
     const staff = await StaffMember.findOne({ _id: invite.staffId, businessId: invite.businessId });
     if (!staff || !staff.isActive) {
-      return res.status(400).json({ success: false, message: 'This staff record is no longer available.', request_id: req.id });
+      return res.status(400).json({
+        success: false,
+        message: 'This staff record is no longer available.',
+        request_id: req.id,
+      });
     }
     if (staff.accountStatus === 'active' && staff.userId) {
-      return res.status(409).json({ success: false, message: 'You have already joined. Please log in.', request_id: req.id });
+      return res.status(409).json({
+        success: false,
+        message: 'You have already joined. Please log in.',
+        request_id: req.id,
+      });
     }
 
     // Find or create the User. Email-match fallback: if a user already exists
@@ -80,13 +96,18 @@ exports.acceptInvite = async (req, res, next) => {
     let user = await User.findOne({ email: invite.email });
     if (!user) {
       if (!password) {
-        return res.status(422).json({ success: false, code: 'validation_failed', message: 'Password is required to create your account.', request_id: req.id });
+        return res.status(422).json({
+          success: false,
+          code: 'validation_failed',
+          message: 'Password is required to create your account.',
+          request_id: req.id,
+        });
       }
       user = await User.create({
         email: invite.email,
-        password,                 // hashed by the User pre-save hook
+        password, // hashed by the User pre-save hook
         name: name || staff.name,
-        isVerified: true,         // accepting an emailed invite proves email ownership
+        isVerified: true, // accepting an emailed invite proves email ownership
         provider: 'local',
       });
     }
@@ -134,7 +155,11 @@ exports.acceptInvite = async (req, res, next) => {
     });
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ success: false, message: 'Account already exists. Please log in.', request_id: req.id });
+      return res.status(409).json({
+        success: false,
+        message: 'Account already exists. Please log in.',
+        request_id: req.id,
+      });
     }
     logger.error('Error in acceptInvite:', err);
     next(err);
@@ -149,7 +174,11 @@ exports.acceptInvite = async (req, res, next) => {
 exports.completeProfile = async (req, res, next) => {
   try {
     if (req.membership !== 'staff' || !req.staffMember) {
-      return res.status(403).json({ success: false, message: 'Only staff can complete a staff profile.', request_id: req.id });
+      return res.status(403).json({
+        success: false,
+        message: 'Only staff can complete a staff profile.',
+        request_id: req.id,
+      });
     }
     const staff = req.staffMember;
     const { phone } = req.body;

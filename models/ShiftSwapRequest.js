@@ -11,7 +11,7 @@ const mongoose = require('mongoose');
 // A claim on an open-board swap (any eligible staff can claim)
 const claimSchema = new mongoose.Schema(
   {
-    staffId:   { type: mongoose.Schema.Types.ObjectId, ref: 'StaffMember', required: true },
+    staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'StaffMember', required: true },
     claimedAt: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -61,8 +61,8 @@ const shiftSwapRequestSchema = new mongoose.Schema(
       default: 'pending',
     },
 
-    reviewedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    reviewedAt:  { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

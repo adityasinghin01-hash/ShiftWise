@@ -18,8 +18,12 @@ const { validate } = require('../../middleware/validate');
 
 // ── Validation schema (shape only; numeric rule cross-checks live in controller) ──
 const locationBodySchema = validate([
-  body('name').trim().notEmpty().withMessage('Location name is required.')
-    .isLength({ max: 100 }).withMessage('Location name is too long.'),
+  body('name')
+    .trim()
+    .notEmpty()
+    .withMessage('Location name is required.')
+    .isLength({ max: 100 })
+    .withMessage('Location name is too long.'),
   body('address').optional().isString().isLength({ max: 255 }),
   body('timezone').optional({ nullable: true }).isString().isLength({ max: 64 }),
   body('settings').optional().isObject(),

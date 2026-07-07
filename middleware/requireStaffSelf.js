@@ -14,28 +14,30 @@ const logger = require('../config/logger');
  *
  * Usage: router.get('/my/shifts', protect(), resolveBusiness, requireStaffSelf(), handler)
  */
-const requireStaffSelf = (paramName = 'staffId') => (req, res, next) => {
-  // Owners can always access any staff record in their business — skip check
-  if (req.membership === 'owner') return next();
+const requireStaffSelf =
+  (paramName = 'staffId') =>
+  (req, res, next) => {
+    // Owners can always access any staff record in their business — skip check
+    if (req.membership === 'owner') return next();
 
-  const targetId = req.params[paramName] || req.params.id;
+    const targetId = req.params[paramName] || req.params.id;
 
-  // No specific target param: allow (it's a "my own data" route)
-  if (!targetId) return next();
+    // No specific target param: allow (it's a "my own data" route)
+    if (!targetId) return next();
 
-  // Staff can only access their own record
-  if (!req.staffMember || req.staffMember._id.toString() !== targetId) {
-    logger.warn(
-      `Staff ${req.staffMember?._id} attempted to access another member's data: ${targetId}`
-    );
-    return res.status(403).json({
-      success: false,
-      message: 'Forbidden: You can only access your own data',
-      request_id: req.id,
-    });
-  }
+    // Staff can only access their own record
+    if (!req.staffMember || req.staffMember._id.toString() !== targetId) {
+      logger.warn(
+        `Staff ${req.staffMember?._id} attempted to access another member's data: ${targetId}`
+      );
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only access your own data',
+        request_id: req.id,
+      });
+    }
 
-  next();
-};
+    next();
+  };
 
 module.exports = requireStaffSelf;

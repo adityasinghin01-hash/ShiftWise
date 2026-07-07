@@ -2,17 +2,17 @@
 
 // ── Shared design tokens ──────────────────────────────
 const BRAND = {
-  primary:   '#2d6e1f',
-  green:     '#4ea864',
-  greenLight:'#7ec8a0',
-  bg:        '#08080f',
-  surface:   '#0d0d18',
-  card:      '#111120',
-  text:      '#f0e4c8',
+  primary: '#2d6e1f',
+  green: '#4ea864',
+  greenLight: '#7ec8a0',
+  bg: '#08080f',
+  surface: '#0d0d18',
+  card: '#111120',
+  text: '#f0e4c8',
   textMuted: '#8a7e68',
-  border:    'rgba(78,168,100,0.18)',
-  name:      'ShiftWise',
-  tagline:   'Smart Team Scheduling',
+  border: 'rgba(78,168,100,0.18)',
+  name: 'ShiftWise',
+  tagline: 'Smart Team Scheduling',
 };
 
 // ── Clock logo SVG ────────────────────────────────────
@@ -124,11 +124,10 @@ const note = (text) =>
 
 // ── Templates ─────────────────────────────────────────
 const templates = {
-
   verificationEmail: ({ verificationUrl }) =>
     base({
       title: 'Verify your email — ShiftWise',
-      preview: 'You\'re one step away. Verify your email to activate your ShiftWise account.',
+      preview: "You're one step away. Verify your email to activate your ShiftWise account.",
       body: `
         ${heading('Confirm your email address')}
         ${para('Welcome to ShiftWise. To activate your account and start building smarter schedules, please verify your email address.')}
@@ -150,7 +149,8 @@ const templates = {
         ${ctaBtn('Reset Password', resetUrl)}
         ${note('If you did not request a password reset, please ignore this email. Your password will remain unchanged and your account is secure.')}
       `,
-      footer: 'You received this because a password reset was requested for your ShiftWise account.',
+      footer:
+        'You received this because a password reset was requested for your ShiftWise account.',
     }),
 
   otpEmail: ({ otp }) =>
@@ -172,12 +172,12 @@ const templates = {
       title: `You're invited to ${businessName} — ShiftWise`,
       preview: `${inviterName || 'Your manager'} invited you to join ${businessName} on ShiftWise.`,
       body: `
-        ${heading('You\'ve been invited')}
+        ${heading("You've been invited")}
         ${para(`${inviterName ? '<strong style="color:' + BRAND.text + '">' + inviterName + '</strong>' : 'Your manager'} has invited you to join <strong style="color:${BRAND.text}">${businessName}</strong> on ShiftWise.`)}
         ${para('Accept the invite to set up your account, share your availability, and see your shifts — all in one place.')}
         ${para('This invite is valid for <strong style="color:' + BRAND.text + '">7 days</strong>.')}
         ${ctaBtn('Accept Invite', inviteUrl)}
-        ${note('If you weren\'t expecting this invitation, you can safely ignore this email.')}
+        ${note("If you weren't expecting this invitation, you can safely ignore this email.")}
       `,
       footer: `You received this because ${businessName} invited you to ShiftWise.`,
     }),

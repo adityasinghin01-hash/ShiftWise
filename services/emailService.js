@@ -99,7 +99,11 @@ module.exports = { sendEmail, sendVerificationEmail, sendPasswordResetEmail, sen
 // ── Staff Invite Email (Phase 2) ─────────────────────────
 // Sends a ShiftWise-branded invite with a one-time join link.
 // rawToken is the un-hashed token; the hash is stored in StaffInvite.
-const sendStaffInviteEmail = async (email, rawToken, { businessName, inviterName, staffName } = {}) => {
+const sendStaffInviteEmail = async (
+  email,
+  rawToken,
+  { businessName, inviterName, staffName } = {}
+) => {
   // Use a query param (?invite=) NOT a hash fragment (#join?token=) — email clients
   // and click-tracking redirects strip everything after '#', which would drop the token.
   const inviteUrl = `${config.CLIENT_URL}/?invite=${rawToken}`;
@@ -108,13 +112,20 @@ const sendStaffInviteEmail = async (email, rawToken, { businessName, inviterName
     toName: staffName,
     subject: `You're invited to join ${businessName || 'a team'} on ShiftWise`,
     text: `${inviterName || 'Your manager'} invited you to join ${businessName || 'their team'} on ShiftWise.\n\nAccept your invite: ${inviteUrl}\n\nThis link expires in 7 days.\n\nIf you weren't expecting this, ignore this email.`,
-    html: t.inviteEmail({ inviteUrl, businessName: htmlEscape(String(businessName || 'your team')), inviterName: inviterName ? htmlEscape(String(inviterName)) : '' }),
+    html: t.inviteEmail({
+      inviteUrl,
+      businessName: htmlEscape(String(businessName || 'your team')),
+      inviterName: inviterName ? htmlEscape(String(inviterName)) : '',
+    }),
   });
 };
 
 // ── Emergency Shift Notification (Phase 2) ───────────────
 // Emails a staff member an urgent shift update + optional manager message.
-const sendEmergencyShiftEmail = async (email, { staffName, businessName, message, shiftsHtml } = {}) => {
+const sendEmergencyShiftEmail = async (
+  email,
+  { staffName, businessName, message, shiftsHtml } = {}
+) => {
   await sendEmail({
     to: email,
     toName: staffName,

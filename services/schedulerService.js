@@ -19,17 +19,17 @@
 // Hard violations (block assignment); soft warnings (allow but flag).
 // Centralised here so controllers and tests import from one place.
 const HARD = {
-  UNAVAILABLE:       'UNAVAILABLE',        // staff not available on that day/time
-  TIME_OFF:          'TIME_OFF',           // approved time-off covers this date
-  DOUBLE_BOOKED:     'DOUBLE_BOOKED',      // overlaps an existing shift
-  INCOMPATIBLE_PAIR: 'INCOMPATIBLE_PAIR',  // co-worker conflict in the same slot
-  REST_VIOLATION:    'REST_VIOLATION',     // insufficient rest between shifts
-  MAX_CONSECUTIVE:   'MAX_CONSECUTIVE',    // would exceed max consecutive days
-  ROLE_MISMATCH:     'ROLE_MISMATCH',      // required role not satisfied
+  UNAVAILABLE: 'UNAVAILABLE', // staff not available on that day/time
+  TIME_OFF: 'TIME_OFF', // approved time-off covers this date
+  DOUBLE_BOOKED: 'DOUBLE_BOOKED', // overlaps an existing shift
+  INCOMPATIBLE_PAIR: 'INCOMPATIBLE_PAIR', // co-worker conflict in the same slot
+  REST_VIOLATION: 'REST_VIOLATION', // insufficient rest between shifts
+  MAX_CONSECUTIVE: 'MAX_CONSECUTIVE', // would exceed max consecutive days
+  ROLE_MISMATCH: 'ROLE_MISMATCH', // required role not satisfied
 };
 
 const SOFT = {
-  OVER_HOURS:    'OVER_HOURS',    // would exceed max weekly hours (soft — manager can override)
+  OVER_HOURS: 'OVER_HOURS', // would exceed max weekly hours (soft — manager can override)
   THIN_COVERAGE: 'THIN_COVERAGE', // slot close to minimum staffing
 };
 
@@ -54,7 +54,7 @@ module.exports.SOFT = SOFT;
  * Phase 4 will flesh out all rule checks. Stub returns empty for now
  * so Phase 0 tests can import and call the function without crashing.
  */
-const checkAssignment = (staffState, slot, ctx) => {
+const checkAssignment = (_staffState, _slot, _ctx) => {
   // §6.2 — TODO (Phase 4): implement all HARD and SOFT rule checks.
   // Stub returns clean (no violations) so model/middleware tests pass.
   return { hard: [], soft: [] };
@@ -79,7 +79,7 @@ module.exports.checkAssignment = checkAssignment;
  *   Phase 4 — greedy assignment
  *   Phase 5 — validate + backtrack (max 3 attempts)
  */
-const generateSchedule = async (scheduleId) => {
+const generateSchedule = async (_scheduleId) => {
   // §6.3 — TODO (Phase 4): implement full 5-phase generator.
   // Stub so route can be wired without crashing.
   return { preview: [], conflicts: [], fairnessScore: 100 };
@@ -105,7 +105,7 @@ module.exports.generateSchedule = generateSchedule;
  *
  * Phase 4 will implement the full formula. Stub returns 0.
  */
-const fairnessScore = (staffState, slot, ctx) => {
+const fairnessScore = (_staffState, _slot, _ctx) => {
   // §6.4 — TODO (Phase 4): implement full fairness formula.
   return 0;
 };
@@ -128,10 +128,11 @@ const reliabilityScore = (metrics) => {
   // New staff with no history → benefit of the doubt
   if (!metrics) return 100;
 
-  const score = 100
-    - 20 * (metrics.noShows      || 0)
-    -  5 * (metrics.lateArrivals || 0)
-    +  3 * (metrics.coversCompleted || 0);
+  const score =
+    100 -
+    20 * (metrics.noShows || 0) -
+    5 * (metrics.lateArrivals || 0) +
+    3 * (metrics.coversCompleted || 0);
 
   return Math.min(100, Math.max(0, Math.round(score)));
 };
