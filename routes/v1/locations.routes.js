@@ -11,6 +11,7 @@ const { body } = require('express-validator');
 
 const locationController = require('../../controllers/locationController');
 const availabilityController = require('../../controllers/availabilityController');
+const templateController = require('../../controllers/templateController');
 const { protect } = require('../../middleware/authMiddleware');
 const resolveBusiness = require('../../middleware/resolveBusiness');
 const requireOwner = require('../../middleware/requireOwner');
@@ -59,6 +60,9 @@ router.get('/:id', locationController.getLocation);
 
 // ── GET /api/v1/locations/:id/availability — staff availability overview (owner) ──
 router.get('/:id/availability', availabilityController.getLocationAvailability);
+
+// ── GET /api/v1/locations/:id/templates — saved schedule templates (owner) ──
+router.get('/:id/templates', templateController.listTemplates);
 
 // ── PUT /api/v1/locations/:id — update ──
 router.put('/:id', locationUpdateSchema, locationController.updateLocation);

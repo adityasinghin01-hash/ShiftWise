@@ -123,6 +123,8 @@ function render() {
           <button class="btn btn-ghost btn-sm" id="wk-prev">‹ Prev</button>
           <button class="btn btn-ghost btn-sm" id="wk-next">Next ›</button>
           <button class="btn btn-secondary btn-sm" id="gen-btn"${published ? ' disabled' : ''}>✨ Auto-generate</button>
+          <button class="btn btn-ghost btn-sm" id="tpl-load-btn"${published ? ' disabled' : ''}>Load template</button>
+          <button class="btn btn-ghost btn-sm" id="tpl-save-btn">Save as template</button>
           <button class="btn btn-primary btn-sm" id="pub-btn"${published ? ' disabled' : ''}>Publish</button>
         </div>
       </div>
@@ -148,6 +150,8 @@ function render() {
   });
   document.getElementById('gen-btn').addEventListener('click', doGenerate);
   document.getElementById('pub-btn').addEventListener('click', doPublish);
+  document.getElementById('tpl-save-btn').addEventListener('click', saveTemplate);
+  document.getElementById('tpl-load-btn').addEventListener('click', loadTemplate);
 
   if (preview) {
     document.getElementById('accept-btn').addEventListener('click', acceptPreview);
@@ -404,5 +408,40 @@ async function doPublish() {
     render();
   } catch (err) {
     toast(err.message || 'Publish failed', 'error');
+  }
+}
+
+async function saveTemplate() {
+  const name = prompt('Save this week as a template. Name it:', 'Standard week');
+  if (!name) return;
+  try {
+    await scheduleApi.saveTemplate(schedule._id, name);
+    toast(`Template "${name}" saved`, 'success');
+  } catch (err) {
+    toast(err.message || 'Could not save template', 'error');
+  }
+}
+
+async function loadTemplate() {
+  let templates;
+  try {
+    templates = (await scheduleApi.listTemplates(currentLocationId)).data || [];
+  } catch (err) {
+    return toast(err.message || 'Could not load templates', 'error');
+  }
+  if (!templates.length) return toast('No saved templates yet for this location.', 'warning');
+  const opts = templates.map((t, i) => `${i + 1}) ${t.name} (${t.shifts.length} shifts)`).join('\n');
+  const pick = prompt(`Load a template (replaces current shifts):\n${opts}\n\nEnter 1–${templates.length}:`, '1');
+  if (!pick) return;
+  const chosen = templates[Number(pick) - 1];
+  if (!chosen) return;
+  try {
+    const res = await scheduleApi.loadTemplate(schedule._id, chosen._id);
+    schedule = res.data.schedule;
+    shifts = res.data.shifts || [];
+    toast(`Loaded "${chosen.name}"`, 'success');
+    render();
+  } catch (err) {
+    toast(err.message || 'Could not load template', 'error');
   }
 }

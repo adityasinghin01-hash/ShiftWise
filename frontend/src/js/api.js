@@ -230,6 +230,9 @@ export const scheduleApi = {
   publish: (id) => request(`/schedules/${id}/publish`, { method: 'POST', body: {} }),
   copy: (id, fromScheduleId) => request(`/schedules/${id}/copy`, { method: 'POST', body: { fromScheduleId } }),
   addShift: (id, body) => request(`/schedules/${id}/shifts`, { method: 'POST', body }),
+  listTemplates: (locationId) => request(`/locations/${locationId}/templates`, { method: 'GET' }),
+  saveTemplate: (id, name) => request(`/schedules/${id}/save-template`, { method: 'POST', body: { name } }),
+  loadTemplate: (id, templateId) => request(`/schedules/${id}/load-template`, { method: 'POST', body: { templateId } }),
 };
 
 export const shiftApi = {

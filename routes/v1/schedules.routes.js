@@ -10,6 +10,7 @@ const { body } = require('express-validator');
 
 const scheduleController = require('../../controllers/scheduleController');
 const shiftController = require('../../controllers/shiftController');
+const templateController = require('../../controllers/templateController');
 const { protect } = require('../../middleware/authMiddleware');
 const resolveBusiness = require('../../middleware/resolveBusiness');
 const requireOwner = require('../../middleware/requireOwner');
@@ -43,5 +44,7 @@ router.post('/:id/apply', scheduleController.applySchedule);
 router.post('/:id/publish', scheduleController.publishSchedule);
 router.post('/:id/copy', scheduleController.copySchedule);
 router.post('/:id/shifts', shiftSchema, shiftController.createShift);
+router.post('/:id/save-template', templateController.saveTemplate);
+router.post('/:id/load-template', templateController.loadTemplate);
 
 module.exports = router;
