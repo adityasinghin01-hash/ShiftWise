@@ -220,3 +220,20 @@ export const availabilityApi = {
   requestOverride: (staffId, body) => request(`/availability/${staffId}/override-request`, { method: 'POST', body }),
   reviewOverride: (id, decision) => request(`/availability/override-request/${id}`, { method: 'PUT', body: { decision } }),
 };
+
+/* ── SHIFTWISE: SCHEDULES + SHIFTS (Phase 4) ── */
+export const scheduleApi = {
+  create: (body) => request('/schedules', { method: 'POST', body }),
+  get: (id) => request(`/schedules/${id}`, { method: 'GET' }),
+  generate: (id) => request(`/schedules/${id}/generate`, { method: 'POST', body: {} }),
+  apply: (id, body) => request(`/schedules/${id}/apply`, { method: 'POST', body }),
+  publish: (id) => request(`/schedules/${id}/publish`, { method: 'POST', body: {} }),
+  copy: (id, fromScheduleId) => request(`/schedules/${id}/copy`, { method: 'POST', body: { fromScheduleId } }),
+  addShift: (id, body) => request(`/schedules/${id}/shifts`, { method: 'POST', body }),
+};
+
+export const shiftApi = {
+  update: (id, body) => request(`/shifts/${id}`, { method: 'PUT', body }),
+  remove: (id) => request(`/shifts/${id}`, { method: 'DELETE' }),
+  attendance: (id, status) => request(`/shifts/${id}/attendance`, { method: 'POST', body: { status } }),
+};

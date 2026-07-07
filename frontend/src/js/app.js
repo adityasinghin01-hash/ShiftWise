@@ -17,6 +17,7 @@ import { renderTeam } from './pages/team.js';
 import { renderJoin } from './pages/join.js';
 import { renderAvailability } from './pages/availability.js';
 import { renderMyAvailability } from './pages/my-availability.js';
+import { renderSchedule } from './pages/schedule.js';
 import { businessApi } from './api.js';
 
 export { navigate };
@@ -39,6 +40,7 @@ const ROUTES = {
   join: () => renderJoin(),
   availability: () => renderAvailability(),
   'my-availability': () => renderMyAvailability(),
+  schedule: () => renderSchedule(),
 };
 
 const PUBLIC_ROUTES = new Set([
