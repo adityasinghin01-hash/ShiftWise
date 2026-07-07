@@ -126,6 +126,10 @@ exports.updateShift = async (req, res, next) => {
     }
 
     Object.assign(shift, next_);
+    // Keep the weekend flag consistent if the shift moved to a different day.
+    if (req.body.date !== undefined) {
+      shift.isWeekend = (new Date(next_.date).getUTCDay() + 6) % 7 >= 5;
+    }
     if (req.body.locked !== undefined) shift.locked = !!req.body.locked;
     await shift.save();
     res.status(200).json({ success: true, data: shift, verdict });

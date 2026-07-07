@@ -230,14 +230,18 @@ function gridHTML(dates) {
               const cls =
                 sh.status === 'absent' ? 'badge-amber' : sh.status === 'covered' ? 'badge-muted' : 'badge-green';
               const suffix = sh.status === 'absent' ? ' ⚠' : sh.status === 'covered' ? ' ✓' : '';
-              const title = !clickable ? '' : published ? 'Click: mark absent / cover' : 'Click to remove';
-              return `<span class="badge ${cls}" data-shift="${sh._id || ''}" style="display:block;margin:2px 0;cursor:${clickable ? 'pointer' : 'default'}" title="${title}">${esc(sh.startTime)}–${esc(sh.endTime)}${suffix}</span>`;
+              const title = !clickable
+                ? ''
+                : published
+                  ? 'Click: mark absent / cover'
+                  : 'Drag to move · click to remove';
+              return `<span class="badge ${cls}" data-shift="${sh._id || ''}"${editable ? ' draggable="true"' : ''} style="display:block;margin:2px 0;cursor:${clickable ? 'pointer' : 'default'}" title="${title}">${esc(sh.startTime)}–${esc(sh.endTime)}${suffix}</span>`;
             })
             .join('');
           const addBtn = !editable
             ? ''
             : `<button class="cell-add" data-staff="${s._id}" data-date="${d.toISOString()}" style="width:100%;background:none;border:1px dashed var(--glass-border);color:var(--text-muted);border-radius:6px;cursor:pointer;font-size:0.75rem;padding:2px">+</button>`;
-          return `<td style="vertical-align:top;padding:4px">${chips}${addBtn}</td>`;
+          return `<td class="sched-cell" data-staff="${s._id}" data-date="${d.toISOString()}" style="vertical-align:top;padding:4px">${chips}${addBtn}</td>`;
         })
         .join('');
       return `<tr><td style="text-align:left"><strong>${esc(s.name)}</strong><br><span class="text-muted" style="font-size:0.72rem">${esc(s.role || '')}</span></td>${cells}</tr>`;
@@ -259,13 +263,51 @@ function wireCells(dates) {
     chip.addEventListener('click', () => (published ? markAbsentFlow(id) : removeShift(id)));
   });
 
-  // "+" to add a shift (draft only).
+  // "+" to add + drag-drop to move (draft only).
   if (!published) {
     document.querySelectorAll('.cell-add').forEach((btn) => {
       btn.addEventListener('click', () =>
         openAddShift(btn.getAttribute('data-staff'), btn.getAttribute('data-date'), dates)
       );
     });
+
+    // Drag a chip onto another cell to reassign its staff/day (rule-checked).
+    document.querySelectorAll('[data-shift][draggable="true"]').forEach((chip) => {
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', chip.getAttribute('data-shift'));
+        e.dataTransfer.effectAllowed = 'move';
+      });
+    });
+    document.querySelectorAll('.sched-cell').forEach((cell) => {
+      cell.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      cell.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/plain');
+        if (id) moveShift(id, cell.getAttribute('data-staff'), cell.getAttribute('data-date'));
+      });
+    });
+  }
+}
+
+/** Drag-drop: reassign a shift's staff (row) and/or day (column). Rule-checked. */
+async function moveShift(shiftId, staffId, dateISO) {
+  const s = shifts.find((x) => String(x._id) === String(shiftId));
+  if (!s) return;
+  if (String(s.staffId) === String(staffId) && dayKey(s.date) === dayKey(dateISO)) return; // same cell
+  try {
+    const dow = (new Date(dateISO).getUTCDay() + 6) % 7;
+    const res = await shiftApi.update(shiftId, { staffId, date: dateISO, isWeekend: dow >= 5 });
+    Object.assign(s, { staffId, date: dateISO });
+    if (res.verdict?.soft?.length) toast(res.verdict.soft[0].message, 'warning');
+    else toast('Shift moved', 'success');
+    render();
+  } catch (err) {
+    const reason = err.data?.verdict?.hard?.[0]?.message || err.message || 'Could not move shift';
+    toast(reason, 'error'); // hard-rule block → shift stays put
+    render();
   }
 }
 
