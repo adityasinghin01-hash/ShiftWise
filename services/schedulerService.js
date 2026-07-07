@@ -242,10 +242,159 @@ module.exports.checkAssignment = checkAssignment;
  *   Phase 4 — greedy assignment
  *   Phase 5 — validate + backtrack (max 3 attempts)
  */
-const generateSchedule = async (_scheduleId) => {
-  // §6.3 — TODO (Phase 4): implement full 5-phase generator.
-  // Stub so route can be wired without crashing.
-  return { preview: [], conflicts: [], fairnessScore: 100 };
+const generateSchedule = async (scheduleId) => {
+  // Lazy requires (keep the pure core importable without pulling in models).
+  const Schedule = require('../models/Schedule');
+  const Location = require('../models/Location');
+  const StaffMember = require('../models/StaffMember');
+  const Availability = require('../models/Availability');
+  const StaffMetrics = require('../models/StaffMetrics');
+  const TimeOffRequest = require('../models/TimeOffRequest');
+  const Shift = require('../models/Shift');
+  const { startOfWeek, resolveAvailability } = require('../utils/weekUtils');
+
+  const schedule = await Schedule.findById(scheduleId);
+  if (!schedule) throw new Error('SCHEDULE_NOT_FOUND');
+  const location = await Location.findById(schedule.locationId);
+  if (!location) throw new Error('LOCATION_NOT_FOUND');
+
+  const weekStartsOn = 0; // app convention: 0 = Monday
+  const baseMs = startOfWeek(schedule.periodStart, weekStartsOn).getTime();
+  const weekDates = Array.from({ length: 7 }, (_, d) => new Date(baseMs + d * DAY_MS));
+  const weekEndMs = baseMs + 7 * DAY_MS;
+
+  // Active staff at this location (tenant-scoped).
+  const staff = await StaffMember.find({
+    businessId: schedule.businessId,
+    locationIds: schedule.locationId,
+    isActive: true,
+  });
+  const staffIds = staff.map((s) => s._id);
+  const idStr = (v) => String(v);
+
+  const [avails, timeOffs, metrics] = await Promise.all([
+    Availability.find({ staffId: { $in: staffIds }, locationId: schedule.locationId }),
+    TimeOffRequest.find({
+      businessId: schedule.businessId,
+      staffId: { $in: staffIds },
+      status: 'approved',
+      startDate: { $lt: new Date(weekEndMs) },
+      endDate: { $gte: new Date(baseMs) },
+    }),
+    StaffMetrics.find({
+      staffId: { $in: staffIds },
+      'period.year': new Date().getFullYear(),
+      'period.month': new Date().getMonth() + 1,
+    }),
+  ]);
+
+  const availByStaff = new Map(avails.map((a) => [idStr(a.staffId), a]));
+  const metricsByStaff = new Map(metrics.map((m) => [idStr(m.staffId), m]));
+
+  // Expand approved time-off ranges into a per-staff Set of 'YYYY-MM-DD' days.
+  const timeOffByStaff = new Map();
+  for (const t of timeOffs) {
+    const set = timeOffByStaff.get(idStr(t.staffId)) || new Set();
+    for (
+      let ms = new Date(t.startDate).getTime();
+      ms <= new Date(t.endDate).getTime();
+      ms += DAY_MS
+    ) {
+      set.add(new Date(ms).toISOString().slice(0, 10));
+    }
+    timeOffByStaff.set(idStr(t.staffId), set);
+  }
+
+  // Incompatible pairs (location setting) → symmetric adjacency map.
+  const incompatible = new Map();
+  for (const pair of location.settings?.incompatiblePairs || []) {
+    const [a, b] = pair.map(idStr);
+    if (!incompatible.has(a)) incompatible.set(a, new Set());
+    if (!incompatible.has(b)) incompatible.set(b, new Set());
+    incompatible.get(a).add(b);
+    incompatible.get(b).add(a);
+  }
+
+  // Build StaffStates.
+  const staffStates = new Map();
+  for (const s of staff) {
+    const av = availByStaff.get(idStr(s._id));
+    const resolved = resolveAvailability(av, schedule.periodStart, weekStartsOn);
+    const availabilityIndex = new Map();
+    for (const ds of resolved) {
+      availabilityIndex.set(ds.dayOfWeek, {
+        available: ds.available !== false,
+        start: ds.preferredStart,
+        end: ds.preferredEnd,
+      });
+    }
+    const m = metricsByStaff.get(idStr(s._id));
+    staffStates.set(idStr(s._id), {
+      staffId: idStr(s._id),
+      name: s.name,
+      role: s.role,
+      maxHoursPerWeek: s.maxHoursPerWeek || 0,
+      manuallyManaged: s.manuallyManaged,
+      availabilityIndex,
+      timeOffDays: timeOffByStaff.get(idStr(s._id)) || new Set(),
+      incompatibleWith: incompatible.get(idStr(s._id)) || new Set(),
+      assignedShifts: [],
+      hoursAssigned: 0,
+      weekendHoursAssigned: 0,
+      nightHoursAssigned: 0,
+      histWeekendHours: m?.weekendHours || 0,
+      histNightHours: m?.nightHours || 0,
+      histTotalHours: m?.totalHours || 0,
+      timeOffRequestedCount: m?.timeOffDaysTaken || 0,
+    });
+  }
+
+  // Slots + pre-applied locked shifts (immovable).
+  const slots = generateSlots(location, weekDates);
+  const lockedShifts = await Shift.find({ scheduleId, locked: true });
+  for (const ls of lockedShifts) {
+    const lsDay = dayIndex(new Date(ls.date).getTime());
+    const match = slots.find(
+      (sl) =>
+        !sl.assignedStaffId &&
+        sl.shiftType === ls.shiftType &&
+        dayIndex(new Date(sl.date).getTime()) === lsDay
+    );
+    if (match) match.assignedStaffId = idStr(ls.staffId);
+  }
+
+  // Team averages from history drive the "owed" fairness comparison.
+  const arr = [...staffStates.values()];
+  const avg = (key) => (arr.length ? arr.reduce((a, ss) => a + (ss[key] || 0), 0) / arr.length : 0);
+  const ctx = {
+    rules: location.settings || {},
+    slots,
+    staffStates,
+    avgWeekendHours: avg('histWeekendHours'),
+    avgNightHours: avg('histNightHours'),
+    avgTotalHours: avg('histTotalHours'),
+  };
+
+  const { conflicts, fairnessScore } = assignSlots(ctx);
+
+  // Map assigned seats → preview Shift shapes (NOT persisted — caller decides).
+  const preview = slots
+    .filter((sl) => sl.assignedStaffId)
+    .map((sl) => ({
+      scheduleId: schedule._id,
+      businessId: schedule.businessId,
+      locationId: schedule.locationId,
+      staffId: sl.assignedStaffId,
+      date: sl.date,
+      startTime: sl.startTime,
+      endTime: sl.endTime,
+      shiftType: sl.shiftType,
+      isWeekend: sl.isWeekend,
+      isNight: sl.isNight,
+      locked: false,
+    }));
+
+  return { preview, conflicts, fairnessScore };
 };
 module.exports.generateSchedule = generateSchedule;
 
