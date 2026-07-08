@@ -54,19 +54,26 @@ async function recomputeStaffMetrics(staffId, locationId, { year, month }) {
     const iCovered = s.coveredBy && String(s.coveredBy) === String(staffId);
 
     if (isMine) {
-      // Hours count only for shifts actually worked (not absent, not a no-show).
-      if (s.status !== 'absent' && s.attendance !== 'no_show') {
-        totalHours += hrs;
-        if (s.isWeekend) weekendHours += hrs;
-        if (s.isNight) nightHours += hrs;
+      if (s.status === 'covered') {
+        // Someone else worked this shift — hours + attendance accrue to the
+        // coverer (below), never to the original assignee.
+      } else if (s.status === 'absent') {
+        absences += 1; // scheduled but absent, no cover assigned yet
+      } else {
+        if (s.attendance !== 'no_show') {
+          totalHours += hrs;
+          if (s.isWeekend) weekendHours += hrs;
+          if (s.isNight) nightHours += hrs;
+        }
+        if (s.attendance === 'late') lateArrivals += 1;
+        if (s.attendance === 'no_show') noShows += 1;
       }
-      if (s.attendance === 'late') lateArrivals += 1;
-      if (s.attendance === 'no_show') noShows += 1;
-      if (s.status === 'absent') absences += 1;
     }
     if (iCovered) {
       coversCompleted += 1;
       totalHours += hrs; // hours worked while covering
+      if (s.isWeekend) weekendHours += hrs;
+      if (s.isNight) nightHours += hrs;
     }
   }
 
@@ -90,19 +97,29 @@ async function recomputeStaffMetrics(staffId, locationId, { year, month }) {
   );
 }
 
-/** Recompute metrics for every staff member touched by a schedule's shifts. */
+/** Recompute metrics for every staff member touched by a schedule's shifts.
+ *  Handles schedules that straddle a month boundary — each affected staffer is
+ *  recomputed for every month their shifts fall in, not just periodStart's. */
 async function recomputeForSchedule(schedule) {
-  const shifts = await Shift.find({ scheduleId: schedule._id }).select('staffId coveredBy').lean();
+  const shifts = await Shift.find({ scheduleId: schedule._id })
+    .select('staffId coveredBy date')
+    .lean();
   const staffIds = new Set();
+  const months = new Map(); // "year-month" → { year, month }
   for (const s of shifts) {
     if (s.staffId) staffIds.add(String(s.staffId));
     if (s.coveredBy) staffIds.add(String(s.coveredBy));
+    const d = new Date(s.date);
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`;
+    if (!months.has(key)) months.set(key, { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 });
   }
-  const d = new Date(schedule.periodStart);
-  const period = { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
-  await Promise.all(
-    [...staffIds].map((id) => recomputeStaffMetrics(id, schedule.locationId, period))
-  );
+  const jobs = [];
+  for (const id of staffIds) {
+    for (const period of months.values()) {
+      jobs.push(recomputeStaffMetrics(id, schedule.locationId, period));
+    }
+  }
+  await Promise.all(jobs);
 }
 
 module.exports = { recomputeStaffMetrics, recomputeForSchedule, shiftHours, monthRange };

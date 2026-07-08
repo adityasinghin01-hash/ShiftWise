@@ -181,14 +181,20 @@ describe('Phase 9 — unread count + mark read', () => {
   });
 
   it("cannot mark another user's notification read → 404", async () => {
-    const list = await request(app).get('/api/v1/notifications?unread=true').set(auth(alexTok));
-    const someId = list.body.data.items[0]?._id;
-    if (someId) {
-      const res = await request(app)
-        .put(`/api/v1/notifications/${someId}/read`)
-        .set(auth(ownerTok)); // owner ≠ owner of Alex's notification
-      expect(res.status).toBe(404);
-    }
+    // Guarantee a concrete target so this can't pass vacuously.
+    const note = await Notification.create({
+      userId: alexUser._id,
+      businessId: business._id,
+      type: 'schedule_published',
+      title: 'Alex only',
+      body: 'x',
+    });
+    const res = await request(app)
+      .put(`/api/v1/notifications/${note._id}/read`)
+      .set(auth(ownerTok)); // owner ≠ owner of Alex's notification
+    expect(res.status).toBe(404);
+    const fresh = await Notification.findById(note._id);
+    expect(fresh.readAt).toBeNull(); // untouched
   });
 
   it('mark-all-read zeroes the unread count', async () => {

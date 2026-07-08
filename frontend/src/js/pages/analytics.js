@@ -62,6 +62,13 @@ function render(d) {
   const body = document.getElementById('an-body');
   if (!body) return;
 
+  // Always tear down any prior chart first — even on the empty-state path — so we
+  // never leak a Chart instance bound to a now-removed canvas.
+  if (chart) {
+    chart.destroy();
+    chart = null;
+  }
+
   if (!d.hasData) {
     body.innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">📊</div>

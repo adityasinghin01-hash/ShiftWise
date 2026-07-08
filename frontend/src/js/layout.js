@@ -4,7 +4,7 @@
 import { store } from './store.js';
 import { auth, authApi } from './api.js';
 import { toast } from './toast.js';
-import { bellHTML, initBell } from './components/bell.js';
+import { bellHTML, initBell, stopBell } from './components/bell.js';
 
 const getApp = () => document.getElementById('app');
 
@@ -89,6 +89,7 @@ export function mountLayout(contentHTML, activeRoute = null) {
   // Logout
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
     if (!confirm('Sign out?')) return;
+    stopBell(); // stop polling + remove the document listener
     try {
       const storedRefresh = sessionStorage.getItem('shiftwise_refresh');
       await authApi.logout(storedRefresh ? { refreshToken: storedRefresh } : {});

@@ -46,16 +46,18 @@ exports.getAnalytics = async (req, res, next) => {
       locIds = (await Location.find({ businessId }).select('_id').lean()).map((l) => l._id);
     }
 
-    // Month scope (default: current)
+    // Month scope (default: current, in UTC to match how shift dates are stored)
     const now = new Date();
-    let year = now.getFullYear();
-    let month = now.getMonth() + 1;
+    let year = now.getUTCFullYear();
+    let month = now.getUTCMonth() + 1;
     if (req.query.month) {
       const m = /^(\d{4})-(\d{2})$/.exec(req.query.month);
-      if (!m) {
-        return res
-          .status(422)
-          .json({ success: false, message: 'month must be YYYY-MM.', request_id: req.id });
+      if (!m || Number(m[2]) < 1 || Number(m[2]) > 12) {
+        return res.status(422).json({
+          success: false,
+          message: 'month must be YYYY-MM (01–12).',
+          request_id: req.id,
+        });
       }
       year = Number(m[1]);
       month = Number(m[2]);

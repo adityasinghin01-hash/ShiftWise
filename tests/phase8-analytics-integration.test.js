@@ -106,7 +106,7 @@ afterAll(async () => {
     await Promise.all([
       Shift.deleteMany({ businessId: bizId }),
       Schedule.deleteMany({ businessId: bizId }),
-      StaffMetrics.deleteMany({ locationId: location._id }),
+      StaffMetrics.deleteMany({ locationId: location?._id }),
       StaffMember.deleteMany({ businessId: bizId }),
       Location.deleteMany({ businessId: bizId }),
       Business.deleteOne({ _id: bizId }),

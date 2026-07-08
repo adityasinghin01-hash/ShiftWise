@@ -7,6 +7,7 @@ import { notificationApi } from '../api.js';
 import { toast } from '../toast.js';
 
 let pollTimer = null;
+let docClickHandler = null;
 
 function esc(s = '') {
   return String(s).replace(
@@ -47,15 +48,30 @@ export function initBell() {
     dropdown.style.display = open ? 'none' : 'block';
     if (!open) refresh();
   });
-  document.addEventListener('click', (e) => {
+  // Single document listener — remove the previous one so navigations don't stack them.
+  if (docClickHandler) document.removeEventListener('click', docClickHandler);
+  docClickHandler = (e) => {
     if (!dropdown.contains(e.target) && e.target !== bell) dropdown.style.display = 'none';
-  });
+  };
+  document.addEventListener('click', docClickHandler);
 
   refresh();
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(refresh, 30000); // ~30s poll
 
   registerPush();
+}
+
+/** Tear down the bell's timer + listener (call on logout). */
+export function stopBell() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  if (docClickHandler) {
+    document.removeEventListener('click', docClickHandler);
+    docClickHandler = null;
+  }
 }
 
 async function refresh() {
@@ -134,9 +150,11 @@ function urlB64ToUint8Array(base64) {
 async function registerPush() {
   const key = import.meta.env?.VITE_VAPID_PUBLIC_KEY;
   if (!key || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  // Don't prompt on load — only wire push if the user has already granted it.
+  // (A production "Enable notifications" button should call requestPermission().)
+  if (Notification.permission !== 'granted') return;
   try {
     const reg = await navigator.serviceWorker.register('/sw.js');
-    if ((await Notification.requestPermission()) !== 'granted') return;
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlB64ToUint8Array(key),

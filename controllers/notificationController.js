@@ -87,10 +87,16 @@ exports.markAllRead = async (req, res, next) => {
 exports.subscribePush = async (req, res, next) => {
   try {
     const { endpoint, keys } = req.body || {};
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    // Enforce string types — an object like {$ne:null} must never reach the query.
+    if (
+      typeof endpoint !== 'string' ||
+      !endpoint ||
+      typeof keys?.p256dh !== 'string' ||
+      typeof keys?.auth !== 'string'
+    ) {
       return res.status(422).json({
         success: false,
-        message: 'A valid push subscription (endpoint + keys) is required.',
+        message: 'A valid push subscription (string endpoint + keys) is required.',
         request_id: req.id,
       });
     }

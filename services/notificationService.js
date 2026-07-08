@@ -28,6 +28,14 @@ try {
 const pushConfigured = () =>
   !!(webpush && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
+/** Escape user-supplied text before embedding in email HTML. */
+function escapeHtml(s = '') {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  );
+}
+
 /** Send the notification as an email (best-effort). */
 async function emailNotification(userId, subject, body) {
   const user = await User.findById(userId).select('email name').lean();
@@ -36,7 +44,7 @@ async function emailNotification(userId, subject, body) {
     to: user.email,
     toName: user.name,
     subject,
-    html: `<p>${body}</p>`,
+    html: `<p>${escapeHtml(body)}</p>`,
     text: body,
   });
 }

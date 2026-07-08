@@ -35,6 +35,7 @@ cd landing  && npm run dev          # landing   → http://localhost:5174
 ```
 
 ### Required environment variables (`.env`)
+
 | Var | Purpose |
 |---|---|
 | `MONGO_URI` | MongoDB connection string (app) |
@@ -68,7 +69,7 @@ suites. Coverage thresholds are enforced on `utils/`, `models/`, `routes/`, `mid
 
 ## Project structure
 
-```
+```text
 controllers/      route handlers (business logic)
 services/         schedulerService (engine), metricsService, notificationService, emailService
 models/           Mongoose schemas (Business, Location, Staff, Schedule, Shift, …)
