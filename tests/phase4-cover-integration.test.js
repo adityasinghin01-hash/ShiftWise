@@ -21,6 +21,7 @@ let app,
   Shift,
   AuditLog;
 let owner, token, business, location, absentStaff, coverStaff, shift;
+let topStaff, midStaff, shift2; // for the anti-favoritism branch
 
 const signToken = (id) =>
   jwt.sign({ id }, config.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
@@ -100,6 +101,44 @@ beforeAll(async () => {
     noShows: 2,
   });
 
+  // Two more coverers for the anti-favoritism branch:
+  //   Rita = 100 (no metrics, top volunteer)
+  //   Mo   = 70 (1 no-show + 2 late → AT the gate, so canAutoClaim is true,
+  //             but 30 pts below Rita → the favoritism rule should still fire).
+  topStaff = await StaffMember.create({
+    businessId: business._id,
+    locationIds: [location._id],
+    name: 'Reliable Rita',
+    email: `cov-rita+${RUN_ID}@shiftwise.dev`,
+    accountStatus: 'active',
+    isActive: true,
+  });
+  midStaff = await StaffMember.create({
+    businessId: business._id,
+    locationIds: [location._id],
+    name: 'Midgrade Mo',
+    email: `cov-mo+${RUN_ID}@shiftwise.dev`,
+    accountStatus: 'active',
+    isActive: true,
+  });
+  await Availability.create({
+    staffId: topStaff._id,
+    locationId: location._id,
+    recurring: { slots: allDays },
+  });
+  await Availability.create({
+    staffId: midStaff._id,
+    locationId: location._id,
+    recurring: { slots: allDays },
+  });
+  await StaffMetrics.create({
+    staffId: midStaff._id,
+    locationId: location._id,
+    period: { year: now.getFullYear(), month: now.getMonth() + 1 },
+    noShows: 1,
+    lateArrivals: 2,
+  });
+
   const monday = new Date('2026-09-07T00:00:00Z'); // a Monday
   const sched = await Schedule.create({
     businessId: business._id,
@@ -114,6 +153,18 @@ beforeAll(async () => {
     locationId: location._id,
     staffId: absentStaff._id,
     date: monday,
+    startTime: '09:00',
+    endTime: '17:00',
+    shiftType: 'morning',
+  });
+  // A second absent shift (Tuesday) for the anti-favoritism test, independent of
+  // the first one that the below-gate tests mutate.
+  shift2 = await Shift.create({
+    scheduleId: sched._id,
+    businessId: business._id,
+    locationId: location._id,
+    staffId: absentStaff._id,
+    date: new Date('2026-09-08T00:00:00Z'),
     startTime: '09:00',
     endTime: '17:00',
     shiftType: 'morning',
@@ -180,5 +231,32 @@ describe('Phase 4 — absence → cover (§6.7)', () => {
     const log = await AuditLog.findOne({ actorId: owner._id, action: 'cover_override' });
     expect(log).toBeTruthy();
     expect(log.meta.reason).toMatch(/short notice/i);
+  });
+
+  it('anti-favoritism: override required for an above-gate pick far below the top volunteer', async () => {
+    // Candidates for shift2: Rita 100, Mo 70, Carl 60. Mo is AT the gate
+    // (canAutoClaim true), but 30 pts below Rita → the favoritism rule must fire.
+    const list = await request(app)
+      .post(`/api/v1/shifts/${shift2._id}/absent`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    const mo = list.body.data.candidates.find((c) => c.name === 'Midgrade Mo');
+    expect(mo.reliabilityScore).toBe(70);
+    expect(mo.canAutoClaim).toBe(true); // NOT below the gate — isolates the favoritism branch
+
+    const noReason = await request(app)
+      .post(`/api/v1/shifts/${shift2._id}/cover/assign`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ staffId: String(midStaff._id) });
+    expect(noReason.status).toBe(422);
+    expect(noReason.body.code).toBe('override_required');
+
+    // The top volunteer (Rita) assigns cleanly — no override needed.
+    const rita = await request(app)
+      .post(`/api/v1/shifts/${shift2._id}/cover/assign`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ staffId: String(topStaff._id) });
+    expect(rita.status).toBe(200);
+    expect(rita.body.data.overridden).toBe(false);
   });
 });

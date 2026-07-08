@@ -6,6 +6,7 @@
 
 'use strict';
 
+const mongoose = require('mongoose');
 const ScheduleTemplate = require('../models/ScheduleTemplate');
 const Schedule = require('../models/Schedule');
 const Shift = require('../models/Shift');
@@ -114,6 +115,15 @@ exports.loadTemplate = async (req, res, next) => {
         .status(404)
         .json({ success: false, message: 'Template not found.', request_id: req.id });
     }
+    // A template's staffed rows belong to its origin location's roster — refuse
+    // to load it into a schedule for a different location.
+    if (String(template.locationId) !== String(schedule.locationId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This template belongs to a different location.',
+        request_id: req.id,
+      });
+    }
 
     const weekStart = startOfWeek(schedule.periodStart, 0).getTime();
     // Only staffed template rows become real shifts (a Shift requires a staffId).
@@ -133,12 +143,20 @@ exports.loadTemplate = async (req, res, next) => {
         locked: false,
       }));
 
-    await Shift.deleteMany({ scheduleId: schedule._id, locked: { $ne: true } });
-    if (docs.length) await Shift.insertMany(docs);
-
-    schedule.generatedBy = 'template';
-    schedule.templateId = template._id;
-    await schedule.save();
+    // All-or-nothing: a failed insert must not leave the schedule with its old
+    // shifts deleted and no replacements. Wrap delete + insert + save in one txn.
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await Shift.deleteMany({ scheduleId: schedule._id, locked: { $ne: true } }, { session });
+        if (docs.length) await Shift.insertMany(docs, { session });
+        schedule.generatedBy = 'template';
+        schedule.templateId = template._id;
+        await schedule.save({ session });
+      });
+    } finally {
+      await session.endSession();
+    }
 
     const shifts = await Shift.find({ scheduleId: schedule._id }).sort({ date: 1, startTime: 1 });
     res.status(200).json({ success: true, data: { schedule, shifts } });
