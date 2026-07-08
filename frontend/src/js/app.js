@@ -19,6 +19,7 @@ import { renderAvailability } from './pages/availability.js';
 import { renderMyAvailability } from './pages/my-availability.js';
 import { renderMyShifts } from './pages/my-shifts.js';
 import { renderSchedule } from './pages/schedule.js';
+import { renderAnalytics } from './pages/analytics.js';
 import { businessApi } from './api.js';
 
 export { navigate };
@@ -43,6 +44,7 @@ const ROUTES = {
   'my-availability': () => renderMyAvailability(),
   'my-shifts': () => renderMyShifts(),
   schedule: () => renderSchedule(),
+  analytics: () => renderAnalytics(),
 };
 
 const PUBLIC_ROUTES = new Set([

@@ -14,6 +14,7 @@ const Shift = require('../models/Shift');
 const scheduler = require('../services/schedulerService');
 const { startOfWeek } = require('../utils/weekUtils');
 const { toShiftEnum } = require('../utils/shiftType');
+const { recomputeForSchedule } = require('../services/metricsService');
 const logger = require('../config/logger');
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -178,6 +179,13 @@ exports.publishSchedule = async (req, res, next) => {
     schedule.publishedAt = new Date();
     schedule.publishedBy = req.user.id;
     await schedule.save();
+
+    // Refresh denormalized metrics from the now-final roster (Phase 8).
+    try {
+      await recomputeForSchedule(schedule);
+    } catch (e) {
+      logger.error('Metric recompute after publish failed (non-fatal):', e);
+    }
 
     // Notifying affected staff (in-app/email/push) lands in Phase 9.
     res.status(200).json({ success: true, data: { schedule, notified: [] } });

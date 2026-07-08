@@ -262,3 +262,11 @@ export const dashboardApi = {
     request(`/timeoff/${id}/review`, { method: 'PUT', body: { decision } }),
   reviewSwap: (id, decision) => request(`/swaps/${id}/review`, { method: 'PUT', body: { decision } }),
 };
+
+/* ── SHIFTWISE: ANALYTICS (Phase 8) ── */
+export const analyticsApi = {
+  get: (location = 'all', month) =>
+    request(`/analytics?location=${encodeURIComponent(location)}${month ? `&month=${month}` : ''}`, { method: 'GET' }),
+  awardBadge: (staffId, badge, message) =>
+    request('/analytics/badges', { method: 'POST', body: { staffId, badge, message } }),
+};
