@@ -12,8 +12,8 @@ const Location = require('../models/Location');
 const Schedule = require('../models/Schedule');
 const Shift = require('../models/Shift');
 const StaffMetrics = require('../models/StaffMetrics');
-const Notification = require('../models/Notification');
 const { monthRange } = require('../services/metricsService');
+const { notify } = require('../services/notificationService');
 const logger = require('../config/logger');
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -191,7 +191,7 @@ exports.awardBadge = async (req, res, next) => {
         request_id: req.id,
       });
     }
-    const note = await Notification.create({
+    const note = await notify({
       userId: staff.userId,
       businessId: req.business._id,
       type: 'badge_awarded',

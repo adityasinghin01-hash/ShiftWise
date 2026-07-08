@@ -4,6 +4,7 @@
 import { store } from './store.js';
 import { auth, authApi } from './api.js';
 import { toast } from './toast.js';
+import { bellHTML, initBell } from './components/bell.js';
 
 const getApp = () => document.getElementById('app');
 
@@ -55,8 +56,8 @@ function sidebarHTML(activeRoute) {
   }
 
   return `
-  <aside class="sidebar">
-    <div class="sidebar-logo">${logoSVG}<span>ShiftWise</span></div>
+  <aside class="sidebar" style="position:relative">
+    <div class="sidebar-logo" style="display:flex;align-items:center;gap:8px">${logoSVG}<span>ShiftWise</span>${bellHTML()}</div>
     <nav class="sidebar-nav">
       <span class="nav-section-title">${useStaffNav ? 'My Work' : 'Manage'}</span>
       ${navItems.map(navLink).join('')}
@@ -98,4 +99,7 @@ export function mountLayout(contentHTML, activeRoute = null) {
     toast('Signed out', 'success');
     location.hash = 'login';
   });
+
+  // Notification bell (poll + dropdown)
+  initBell();
 }
