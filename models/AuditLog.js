@@ -20,6 +20,7 @@ const auditLogSchema = new mongoose.Schema(
         'plan_change',
         'delete_user',
         'cover_override', // §6.7 — manager overrode the anti-favoritism / reliability cover pick
+        'swap_override', // §9 Phase 5 — manager approved a swap despite a soft-rule warning
       ],
     },
     targetId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

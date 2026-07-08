@@ -51,11 +51,11 @@ timeOffRequestSchema.index({ businessId: 1, status: 1 });
 
 // Reject inverted date ranges — approved requests become hard scheduler blocks,
 // so an endDate before startDate would corrupt scheduling logic downstream.
-timeOffRequestSchema.pre('validate', function (next) {
+// Sync hook (no next callback) — invalidate() is synchronous and version-safe.
+timeOffRequestSchema.pre('validate', function () {
   if (this.startDate && this.endDate && this.endDate < this.startDate) {
     this.invalidate('endDate', 'endDate must be on or after startDate');
   }
-  next();
 });
 
 const TimeOffRequest = mongoose.model('TimeOffRequest', timeOffRequestSchema);

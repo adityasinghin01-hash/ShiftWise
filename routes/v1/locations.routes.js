@@ -12,6 +12,8 @@ const { body, param } = require('express-validator');
 const locationController = require('../../controllers/locationController');
 const availabilityController = require('../../controllers/availabilityController');
 const templateController = require('../../controllers/templateController');
+const timeoffController = require('../../controllers/timeoffController');
+const swapController = require('../../controllers/swapController');
 const { protect } = require('../../middleware/authMiddleware');
 const resolveBusiness = require('../../middleware/resolveBusiness');
 const requireOwner = require('../../middleware/requireOwner');
@@ -67,6 +69,15 @@ router.get(
   validate([param('id').isMongoId().withMessage('Invalid location id.')]),
   templateController.listTemplates
 );
+
+
+// ── GET /api/v1/locations/:id/timeoff — time-off requests for a location (owner) ──
+router.get('/:id/timeoff', timeoffController.locationTimeOff);
+
+// ── GET /api/v1/locations/:id/swaps — swap requests for a location (owner) ──
+router.get('/:id/swaps', swapController.locationSwaps);
+
+
 
 // ── PUT /api/v1/locations/:id — update ──
 router.put('/:id', locationUpdateSchema, locationController.updateLocation);
