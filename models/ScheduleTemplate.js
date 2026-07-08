@@ -17,6 +17,9 @@ const templateShiftSchema = new mongoose.Schema(
     startTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
     endTime: { type: String, required: true, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
     requiredCount: { type: Number, default: 1, min: 1 }, // how many staff needed for this slot
+    // Optional: a template saved FROM a real week remembers who worked each slot,
+    // so loading it recreates the staffed roster. Structure-only templates omit this.
+    staffId: { type: mongoose.Schema.Types.ObjectId, ref: 'StaffMember', default: null },
   },
   { _id: false }
 );

@@ -123,6 +123,8 @@ function render() {
           <button class="btn btn-ghost btn-sm" id="wk-prev">‹ Prev</button>
           <button class="btn btn-ghost btn-sm" id="wk-next">Next ›</button>
           <button class="btn btn-secondary btn-sm" id="gen-btn"${published ? ' disabled' : ''}>✨ Auto-generate</button>
+          <button class="btn btn-ghost btn-sm" id="tpl-load-btn"${published ? ' disabled' : ''}>Load template</button>
+          <button class="btn btn-ghost btn-sm" id="tpl-save-btn">Save as template</button>
           <button class="btn btn-primary btn-sm" id="pub-btn"${published ? ' disabled' : ''}>Publish</button>
         </div>
       </div>
@@ -148,6 +150,8 @@ function render() {
   });
   document.getElementById('gen-btn').addEventListener('click', doGenerate);
   document.getElementById('pub-btn').addEventListener('click', doPublish);
+  document.getElementById('tpl-save-btn').addEventListener('click', saveTemplate);
+  document.getElementById('tpl-load-btn').addEventListener('click', loadTemplate);
 
   if (preview) {
     document.getElementById('accept-btn').addEventListener('click', acceptPreview);
@@ -211,24 +215,33 @@ function gridHTML(dates) {
     .map((d, i) => `<th style="min-width:110px">${DAYS[i]}<br><span class="text-muted" style="font-weight:400;font-size:0.72rem">${d.getUTCDate()}</span></th>`)
     .join('')}</tr>`;
 
-  // Editable only while it's a draft with no pending preview. A published
-  // schedule (or an un-accepted preview) is read-only.
-  const editable = schedule?.status !== 'published' && !preview;
+  // Draft (no preview) = editable (add/remove). Published (no preview) = the
+  // day-of view where chips trigger mark-absent → cover. A preview is read-only.
+  const published = schedule?.status === 'published';
+  const editable = !published && !preview;
+  const clickable = !preview;
 
   const rows = staff
     .map((s) => {
       const cells = dates
         .map((d) => {
           const chips = cellShifts(s._id, d)
-            .map(
-              (sh) =>
-                `<span class="badge badge-green" data-shift="${sh._id || ''}" style="display:block;margin:2px 0;cursor:${editable ? 'pointer' : 'default'}" title="${editable ? 'Click to remove' : ''}">${esc(sh.startTime)}–${esc(sh.endTime)}</span>`
-            )
+            .map((sh) => {
+              const cls =
+                sh.status === 'absent' ? 'badge-amber' : sh.status === 'covered' ? 'badge-muted' : 'badge-green';
+              const suffix = sh.status === 'absent' ? ' ⚠' : sh.status === 'covered' ? ' ✓' : '';
+              const title = !clickable
+                ? ''
+                : published
+                  ? 'Click: mark absent / cover'
+                  : 'Drag to move · click to remove';
+              return `<span class="badge ${cls}" data-shift="${sh._id || ''}"${editable ? ' draggable="true"' : ''} style="display:block;margin:2px 0;cursor:${clickable ? 'pointer' : 'default'}" title="${title}">${esc(sh.startTime)}–${esc(sh.endTime)}${suffix}</span>`;
+            })
             .join('');
           const addBtn = !editable
             ? ''
             : `<button class="cell-add" data-staff="${s._id}" data-date="${d.toISOString()}" style="width:100%;background:none;border:1px dashed var(--glass-border);color:var(--text-muted);border-radius:6px;cursor:pointer;font-size:0.75rem;padding:2px">+</button>`;
-          return `<td style="vertical-align:top;padding:4px">${chips}${addBtn}</td>`;
+          return `<td class="sched-cell" data-staff="${s._id}" data-date="${d.toISOString()}" style="vertical-align:top;padding:4px">${chips}${addBtn}</td>`;
         })
         .join('');
       return `<tr><td style="text-align:left"><strong>${esc(s.name)}</strong><br><span class="text-muted" style="font-size:0.72rem">${esc(s.role || '')}</span></td>${cells}</tr>`;
@@ -240,27 +253,120 @@ function gridHTML(dates) {
 }
 
 function wireCells(dates) {
-  // Read-only while a preview is pending or the schedule is published.
-  if (preview || schedule?.status === 'published') return;
-  // Remove a shift on chip click
+  if (preview) return; // preview is read-only until accepted/discarded
+  const published = schedule?.status === 'published';
+
+  // Chip click: draft → remove the shift; published → mark absent + find cover.
   document.querySelectorAll('[data-shift]').forEach((chip) => {
-    chip.addEventListener('click', async () => {
-      const id = chip.getAttribute('data-shift');
-      if (!id || schedule.status === 'published') return;
-      if (!confirm('Remove this shift?')) return;
-      try {
-        await shiftApi.remove(id);
-        shifts = shifts.filter((s) => String(s._id) !== String(id));
-        render();
-      } catch (err) {
-        toast(err.message || 'Could not remove shift', 'error');
-      }
+    const id = chip.getAttribute('data-shift');
+    if (!id) return;
+    chip.addEventListener('click', () => (published ? markAbsentFlow(id) : removeShift(id)));
+  });
+
+  // "+" to add + drag-drop to move (draft only).
+  if (!published) {
+    document.querySelectorAll('.cell-add').forEach((btn) => {
+      btn.addEventListener('click', () =>
+        openAddShift(btn.getAttribute('data-staff'), btn.getAttribute('data-date'), dates)
+      );
     });
-  });
-  // Add a shift on "+" click
-  document.querySelectorAll('.cell-add').forEach((btn) => {
-    btn.addEventListener('click', () => openAddShift(btn.getAttribute('data-staff'), btn.getAttribute('data-date'), dates));
-  });
+
+    // Drag a chip onto another cell to reassign its staff/day (rule-checked).
+    document.querySelectorAll('[data-shift][draggable="true"]').forEach((chip) => {
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', chip.getAttribute('data-shift'));
+        e.dataTransfer.effectAllowed = 'move';
+      });
+    });
+    document.querySelectorAll('.sched-cell').forEach((cell) => {
+      cell.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      cell.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/plain');
+        if (id) moveShift(id, cell.getAttribute('data-staff'), cell.getAttribute('data-date'));
+      });
+    });
+  }
+}
+
+/** Drag-drop: reassign a shift's staff (row) and/or day (column). Rule-checked. */
+async function moveShift(shiftId, staffId, dateISO) {
+  const s = shifts.find((x) => String(x._id) === String(shiftId));
+  if (!s) return;
+  if (String(s.staffId) === String(staffId) && dayKey(s.date) === dayKey(dateISO)) return; // same cell
+  try {
+    const dow = (new Date(dateISO).getUTCDay() + 6) % 7;
+    const res = await shiftApi.update(shiftId, { staffId, date: dateISO, isWeekend: dow >= 5 });
+    Object.assign(s, { staffId, date: dateISO });
+    if (res.verdict?.soft?.length) toast(res.verdict.soft[0].message, 'warning');
+    else toast('Shift moved', 'success');
+    render();
+  } catch (err) {
+    const reason = err.data?.verdict?.hard?.[0]?.message || err.message || 'Could not move shift';
+    toast(reason, 'error'); // hard-rule block → shift stays put
+    render();
+  }
+}
+
+async function removeShift(id) {
+  if (!confirm('Remove this shift?')) return;
+  try {
+    await shiftApi.remove(id);
+    shifts = shifts.filter((s) => String(s._id) !== String(id));
+    render();
+  } catch (err) {
+    toast(err.message || 'Could not remove shift', 'error');
+  }
+}
+
+/** Published-schedule day-of flow: mark a shift absent, then pick a cover. */
+async function markAbsentFlow(shiftId) {
+  if (!confirm('Mark this shift absent and find cover?')) return;
+  let candidates;
+  try {
+    const res = await shiftApi.markAbsent(shiftId);
+    candidates = res.data.candidates || [];
+    const s = shifts.find((x) => String(x._id) === String(shiftId));
+    if (s) s.status = 'absent';
+  } catch (err) {
+    return toast(err.message || 'Could not mark absent', 'error');
+  }
+  if (!candidates.length) {
+    render();
+    return toast('Marked absent — no eligible staff can cover this shift.', 'warning');
+  }
+  const opts = candidates
+    .map((c, i) => `${i + 1}) ${c.name} — reliability ${c.reliabilityScore}${c.canAutoClaim ? '' : ' ⚠ below gate'}`)
+    .join('\n');
+  const pick = prompt(`Marked absent. Pick a cover:\n${opts}\n\nEnter 1–${candidates.length}:`, '1');
+  render();
+  if (!pick) return;
+  const chosen = candidates[Number(pick) - 1];
+  if (chosen) assignCoverFlow(shiftId, chosen.staffId);
+}
+
+async function assignCoverFlow(shiftId, staffId, overrideReason) {
+  try {
+    await shiftApi.assignCover(shiftId, { staffId, overrideReason });
+    const s = shifts.find((x) => String(x._id) === String(shiftId));
+    if (s) {
+      s.status = 'covered';
+      s.coveredBy = staffId;
+    }
+    toast('Cover assigned ✓', 'success');
+    render();
+  } catch (err) {
+    // Reliability gate / anti-favoritism → backend asks for a reason.
+    if (err.data?.code === 'override_required') {
+      const reason = prompt(`${err.message}\n\nEnter a reason to override:`);
+      if (reason) return assignCoverFlow(shiftId, staffId, reason);
+      return;
+    }
+    toast(err.message || 'Could not assign cover', 'error');
+  }
 }
 
 function locationShiftTypes() {
@@ -344,5 +450,40 @@ async function doPublish() {
     render();
   } catch (err) {
     toast(err.message || 'Publish failed', 'error');
+  }
+}
+
+async function saveTemplate() {
+  const name = prompt('Save this week as a template. Name it:', 'Standard week');
+  if (!name) return;
+  try {
+    await scheduleApi.saveTemplate(schedule._id, name);
+    toast(`Template "${name}" saved`, 'success');
+  } catch (err) {
+    toast(err.message || 'Could not save template', 'error');
+  }
+}
+
+async function loadTemplate() {
+  let templates;
+  try {
+    templates = (await scheduleApi.listTemplates(currentLocationId)).data || [];
+  } catch (err) {
+    return toast(err.message || 'Could not load templates', 'error');
+  }
+  if (!templates.length) return toast('No saved templates yet for this location.', 'warning');
+  const opts = templates.map((t, i) => `${i + 1}) ${t.name} (${t.shifts.length} shifts)`).join('\n');
+  const pick = prompt(`Load a template (replaces current shifts):\n${opts}\n\nEnter 1–${templates.length}:`, '1');
+  if (!pick) return;
+  const chosen = templates[Number(pick) - 1];
+  if (!chosen) return;
+  try {
+    const res = await scheduleApi.loadTemplate(schedule._id, chosen._id);
+    schedule = res.data.schedule;
+    shifts = res.data.shifts || [];
+    toast(`Loaded "${chosen.name}"`, 'success');
+    render();
+  } catch (err) {
+    toast(err.message || 'Could not load template', 'error');
   }
 }

@@ -24,6 +24,7 @@ const joinRoutes = require('./join.routes');
 const availabilityRoutes = require('./availability.routes');
 const scheduleRoutes = require('./schedules.routes');
 const shiftRoutes = require('./shifts.routes');
+const templateRoutes = require('./templates.routes');
 
 // ── Auth ─────────────────────────────────────────────────
 router.use('/', authRoutes);
@@ -72,5 +73,8 @@ router.use('/schedules', scheduleRoutes);
 
 // ── ShiftWise: Shifts (Phase 4) ──────────────────────────
 router.use('/shifts', shiftRoutes);
+
+// ── ShiftWise: Templates (Phase 4) ───────────────────────
+router.use('/templates', templateRoutes);
 
 module.exports = router;

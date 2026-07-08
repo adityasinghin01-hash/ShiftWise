@@ -18,4 +18,8 @@ router.put('/:id', shiftController.updateShift);
 router.delete('/:id', shiftController.deleteShift);
 router.post('/:id/attendance', shiftController.markAttendance);
 
+// Absence → cover (§6.7)
+router.post('/:id/absent', shiftController.markAbsent);
+router.post('/:id/cover/assign', shiftController.assignCover);
+
 module.exports = router;

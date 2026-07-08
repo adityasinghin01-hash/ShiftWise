@@ -19,6 +19,7 @@ const auditLogSchema = new mongoose.Schema(
         'view_users',
         'plan_change',
         'delete_user',
+        'cover_override', // §6.7 — manager overrode the anti-favoritism / reliability cover pick
       ],
     },
     targetId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
