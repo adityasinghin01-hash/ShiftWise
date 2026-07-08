@@ -11,10 +11,20 @@ const config = require('../config/config');
 const MONGO_URI = process.env.MONGO_URI_TEST;
 const RUN_ID = Date.now();
 
-let app, User, Business, Location, StaffMember, Availability, Schedule, Shift, TimeOffRequest, ShiftSwapRequest;
-let owner, ownerTok, business, location, s1, s2, s1Tok, s2Tok, schedule, shift;
+let app,
+  User,
+  Business,
+  Location,
+  StaffMember,
+  Availability,
+  Schedule,
+  Shift,
+  TimeOffRequest,
+  ShiftSwapRequest;
+let owner, ownerTok, business, location, s1, s2, s1Tok, schedule, shift;
 
-const sign = (id) => jwt.sign({ id }, config.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
+const sign = (id) =>
+  jwt.sign({ id }, config.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
 const allDays = [0, 1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, available: true }));
 const bearer = (t) => ({ Authorization: `Bearer ${t}` });
 
@@ -22,7 +32,17 @@ beforeAll(async () => {
   if (!MONGO_URI) throw new Error('MONGO_URI_TEST required');
   if (mongoose.connection.readyState === 0) await mongoose.connect(MONGO_URI);
   app = require('../app');
-  [User, Business, Location, StaffMember, Availability, Schedule, Shift, TimeOffRequest, ShiftSwapRequest] = [
+  [
+    User,
+    Business,
+    Location,
+    StaffMember,
+    Availability,
+    Schedule,
+    Shift,
+    TimeOffRequest,
+    ShiftSwapRequest,
+  ] = [
     require('../models/User'),
     require('../models/Business'),
     require('../models/Location'),
@@ -34,18 +54,37 @@ beforeAll(async () => {
     require('../models/ShiftSwapRequest'),
   ];
 
-  owner = await User.create({ email: `p5-owner+${RUN_ID}@sw.dev`, password: 'Owner@ShiftWise1', name: 'P5 Owner', isVerified: true, role: 'user' });
+  owner = await User.create({
+    email: `p5-owner+${RUN_ID}@sw.dev`,
+    password: 'Owner@ShiftWise1',
+    name: 'P5 Owner',
+    isVerified: true,
+    role: 'user',
+  });
   ownerTok = sign(owner._id);
-  business = await Business.create({ name: 'P5 Cafe', ownerId: owner._id, onboarding: { completed: true } });
+  business = await Business.create({
+    name: 'P5 Cafe',
+    ownerId: owner._id,
+    onboarding: { completed: true },
+  });
   location = await Location.create({
     businessId: business._id,
     name: 'P5 Main',
-    settings: { shiftTypes: [{ name: 'morning', startTime: '09:00', endTime: '17:00' }], minStaffPerShift: 1 },
+    settings: {
+      shiftTypes: [{ name: 'morning', startTime: '09:00', endTime: '17:00' }],
+      minStaffPerShift: 1,
+    },
   });
 
   // Two staff, each with a linked User so they can authenticate as staff.
   const mkStaff = async (name, email) => {
-    const u = await User.create({ email, password: 'Staff@ShiftWise1', name, isVerified: true, role: 'user' });
+    const u = await User.create({
+      email,
+      password: 'Staff@ShiftWise1',
+      name,
+      isVerified: true,
+      role: 'user',
+    });
     const sm = await StaffMember.create({
       businessId: business._id,
       locationIds: [location._id],
@@ -55,13 +94,18 @@ beforeAll(async () => {
       accountStatus: 'active',
       isActive: true,
     });
-    await Availability.create({ staffId: sm._id, locationId: location._id, recurring: { slots: allDays } });
+    await Availability.create({
+      staffId: sm._id,
+      locationId: location._id,
+      recurring: { slots: allDays },
+    });
     return { u, sm, tok: sign(u._id) };
   };
   const a = await mkStaff('Sara One', `p5-s1+${RUN_ID}@sw.dev`);
   const b = await mkStaff('Sam Two', `p5-s2+${RUN_ID}@sw.dev`);
-  s1 = a.sm; s1Tok = a.tok;
-  s2 = b.sm; s2Tok = b.tok;
+  s1 = a.sm;
+  s1Tok = a.tok;
+  s2 = b.sm;
 
   // Published schedule with a Wednesday shift for Sara.
   const monday = new Date('2026-11-02T00:00:00Z');
@@ -115,7 +159,9 @@ describe('Phase 5 — time-off', () => {
   });
 
   it('owner sees it in the location list', async () => {
-    const res = await request(app).get(`/api/v1/locations/${location._id}/timeoff`).set(bearer(ownerTok));
+    const res = await request(app)
+      .get(`/api/v1/locations/${location._id}/timeoff`)
+      .set(bearer(ownerTok));
     expect(res.status).toBe(200);
     expect(res.body.data.map((r) => r._id)).toContain(requestId);
   });
