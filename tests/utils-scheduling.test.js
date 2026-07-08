@@ -43,7 +43,10 @@ describe('weekUtils.resolveAvailability', () => {
 
 describe('weekUtils.slotForDay', () => {
   const weekOf = '2026-07-06';
-  const av = { recurring: { slots: [{ dayOfWeek: 1, available: true, preferredStart: '09:00' }] }, overrides: [] };
+  const av = {
+    recurring: { slots: [{ dayOfWeek: 1, available: true, preferredStart: '09:00' }] },
+    overrides: [],
+  };
 
   it('returns the slot when the staff member is available that day', () => {
     const slot = slotForDay(av, weekOf, 1, 0);
