@@ -64,6 +64,12 @@ const shiftSchema = new mongoose.Schema(
       default: 'scheduled',
     },
 
+    // ── Staff self-service (Phase 6) ──────────────────────
+    // Set when the staff member acknowledges the shift (status → confirmed).
+    acknowledgedAt: { type: Date, default: null },
+    // Reason captured when a staff member disputes their shift (status → disputed).
+    disputeReason: { type: String, maxlength: 500, default: null },
+
     // ── Attendance (manager-marked) ───────────────────────
     attendance: {
       type: String,
