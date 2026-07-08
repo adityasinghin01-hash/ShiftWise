@@ -242,3 +242,23 @@ export const shiftApi = {
   markAbsent: (id) => request(`/shifts/${id}/absent`, { method: 'POST', body: {} }),
   assignCover: (id, body) => request(`/shifts/${id}/cover/assign`, { method: 'POST', body }),
 };
+
+/* ── SHIFTWISE: STAFF PORTAL (Phase 6) ── */
+export const staffPortalApi = {
+  myShifts: (weekOf) =>
+    request(`/my/shifts${weekOf ? `?weekOf=${encodeURIComponent(weekOf)}` : ''}`, { method: 'GET' }),
+  acknowledge: (id) => request(`/my/shifts/${id}/acknowledge`, { method: 'POST', body: {} }),
+  dispute: (id, reason) => request(`/my/shifts/${id}/dispute`, { method: 'POST', body: { reason } }),
+  myMetrics: () => request('/my/metrics', { method: 'GET' }),
+};
+
+/* ── SHIFTWISE: MANAGER DASHBOARD (Phase 7) ── */
+export const dashboardApi = {
+  // location: 'all' | locationId
+  get: (location = 'all') =>
+    request(`/manager/dashboard?location=${encodeURIComponent(location)}`, { method: 'GET' }),
+  // Inline approve/deny reuse the Phase 5 review endpoints:
+  reviewTimeOff: (id, decision) =>
+    request(`/timeoff/${id}/review`, { method: 'PUT', body: { decision } }),
+  reviewSwap: (id, decision) => request(`/swaps/${id}/review`, { method: 'PUT', body: { decision } }),
+};
