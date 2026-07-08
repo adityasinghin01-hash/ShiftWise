@@ -29,6 +29,8 @@ const timeoffRoutes = require('./timeoff.routes');
 const swapRoutes = require('./swaps.routes');
 const staffPortalRoutes = require('./staffPortal.routes');
 const dashboardRoutes = require('./dashboard.routes');
+const analyticsRoutes = require('./analytics.routes');
+const notificationRoutes = require('./notifications.routes');
 
 // ── Auth ─────────────────────────────────────────────────
 router.use('/', authRoutes);
@@ -90,5 +92,11 @@ router.use('/', staffPortalRoutes);
 
 // ── ShiftWise: Manager Dashboard (Phase 7) ───────────────
 router.use('/', dashboardRoutes);
+
+// ── ShiftWise: Analytics (Phase 8) ───────────────────────
+router.use('/analytics', analyticsRoutes);
+
+// ── ShiftWise: Notifications (Phase 9) ───────────────────
+router.use('/notifications', notificationRoutes);
 
 module.exports = router;

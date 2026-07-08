@@ -10,7 +10,11 @@
 const TimeOffRequest = require('../models/TimeOffRequest');
 const Shift = require('../models/Shift');
 const Schedule = require('../models/Schedule');
+const StaffMember = require('../models/StaffMember');
+const { notify } = require('../services/notificationService');
 const logger = require('../config/logger');
+
+const ymd = (d) => new Date(d).toISOString().slice(0, 10);
 
 const primaryLocation = (staff) => staff?.locationIds?.[0] || null;
 
@@ -166,6 +170,23 @@ exports.reviewTimeOff = async (req, res, next) => {
       if (clashing.length) {
         coverageWarning = { shiftIds: clashing.map((s) => s._id), shifts: clashing };
       }
+    }
+
+    // Notify the requester of the decision (Phase 9).
+    try {
+      const staff = await StaffMember.findById(request.staffId).select('userId').lean();
+      if (staff?.userId) {
+        await notify({
+          userId: staff.userId,
+          businessId: req.business._id,
+          type: decision === 'approved' ? 'time_off_approved' : 'time_off_denied',
+          title: `Time off ${decision}`,
+          body: `Your time-off request for ${ymd(request.startDate)}–${ymd(request.endDate)} was ${decision}.`,
+          data: { requestId: String(request._id) },
+        });
+      }
+    } catch (e) {
+      logger.error('Notify (time-off review) failed:', e);
     }
 
     res.status(200).json({ success: true, data: { request, coverageWarning } });

@@ -11,8 +11,29 @@
 const ShiftSwapRequest = require('../models/ShiftSwapRequest');
 const Shift = require('../models/Shift');
 const AuditLog = require('../models/AuditLog');
+const StaffMember = require('../models/StaffMember');
 const scheduler = require('../services/schedulerService');
+const { notify } = require('../services/notificationService');
 const logger = require('../config/logger');
+
+/** Notify the swap's requester of the review decision (Phase 9). */
+async function notifySwapResult(swap, decision, businessId) {
+  try {
+    const staff = await StaffMember.findById(swap.requesterStaffId).select('userId').lean();
+    if (staff?.userId) {
+      await notify({
+        userId: staff.userId,
+        businessId,
+        type: decision === 'approved' ? 'swap_approved' : 'swap_denied',
+        title: `Swap ${decision}`,
+        body: `Your shift-swap request was ${decision}.`,
+        data: { swapId: String(swap._id) },
+      });
+    }
+  } catch (e) {
+    logger.error('Notify (swap review) failed:', e);
+  }
+}
 
 /**
  * @route   POST /api/v1/swaps
@@ -199,6 +220,7 @@ exports.reviewSwap = async (req, res, next) => {
       swap.reviewedBy = req.user.id;
       swap.reviewedAt = new Date();
       await swap.save();
+      await notifySwapResult(swap, 'denied', req.business._id);
       return res
         .status(200)
         .json({ success: true, data: { request: swap, verdict: { hard: [], soft: [] } } });
@@ -274,6 +296,7 @@ exports.reviewSwap = async (req, res, next) => {
       });
     }
 
+    await notifySwapResult(swap, 'approved', req.business._id);
     res.status(200).json({ success: true, data: { request: swap, verdict } });
   } catch (err) {
     if (err.message === 'STAFF_NOT_FOUND') {

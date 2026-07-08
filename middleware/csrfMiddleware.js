@@ -61,7 +61,7 @@ const csrfMiddleware = (req, res, next) => {
   }
 
   // Skip if no cookie (bearer-only request)
-  if (!req.cookies?.spinx_refresh) {
+  if (!req.cookies?.shiftwise_refresh) {
     return next();
   }
 

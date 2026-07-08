@@ -44,7 +44,7 @@ const setup = async (req, res, next) => {
     }
 
     const secret = authenticator.generateSecret();
-    const otpauth = authenticator.keyuri(req.user.email, 'Spinx', secret);
+    const otpauth = authenticator.keyuri(req.user.email, 'ShiftWise', secret);
     const qrCodeDataUrl = await QRCode.toDataURL(otpauth);
 
     // Store encrypted secret (pending — not yet active)
@@ -206,7 +206,7 @@ const mfaLogin = async (req, res, next) => {
     const isWebClient = decoded.clientType === 'web';
     if (isWebClient) {
       const maxAge = decoded.rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-      res.cookie('spinx_refresh', refreshToken, {
+      res.cookie('shiftwise_refresh', refreshToken, {
         httpOnly: true,
         secure: config.NODE_ENV === 'production',
         sameSite: 'Strict',

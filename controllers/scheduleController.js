@@ -11,9 +11,12 @@
 const Schedule = require('../models/Schedule');
 const Location = require('../models/Location');
 const Shift = require('../models/Shift');
+const StaffMember = require('../models/StaffMember');
 const scheduler = require('../services/schedulerService');
 const { startOfWeek } = require('../utils/weekUtils');
 const { toShiftEnum } = require('../utils/shiftType');
+const { recomputeForSchedule } = require('../services/metricsService');
+const { notify } = require('../services/notificationService');
 const logger = require('../config/logger');
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -179,8 +182,37 @@ exports.publishSchedule = async (req, res, next) => {
     schedule.publishedBy = req.user.id;
     await schedule.save();
 
-    // Notifying affected staff (in-app/email/push) lands in Phase 9.
-    res.status(200).json({ success: true, data: { schedule, notified: [] } });
+    // Refresh denormalized metrics from the now-final roster (Phase 8).
+    try {
+      await recomputeForSchedule(schedule);
+    } catch (e) {
+      logger.error('Metric recompute after publish failed (non-fatal):', e);
+    }
+
+    // Notify every staff member on the schedule (Phase 9).
+    const notified = [];
+    try {
+      const shifts = await Shift.find({ scheduleId: schedule._id }).select('staffId').lean();
+      const staffIds = [...new Set(shifts.map((s) => String(s.staffId)))];
+      const staff = await StaffMember.find({ _id: { $in: staffIds }, userId: { $ne: null } })
+        .select('userId')
+        .lean();
+      await Promise.all(
+        staff.map((s) =>
+          notify({
+            userId: s.userId,
+            businessId: req.business._id,
+            type: 'schedule_published',
+            title: 'New schedule published',
+            body: 'Your manager published a schedule that includes you.',
+            data: { scheduleId: String(schedule._id) },
+          }).then(() => notified.push(String(s.userId)))
+        )
+      );
+    } catch (e) {
+      logger.error('Notify (publish) failed (non-fatal):', e);
+    }
+    res.status(200).json({ success: true, data: { schedule, notified } });
   } catch (err) {
     logger.error('Error in publishSchedule:', err);
     next(err);

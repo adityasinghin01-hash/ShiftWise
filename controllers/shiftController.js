@@ -13,6 +13,7 @@ const Shift = require('../models/Shift');
 const AuditLog = require('../models/AuditLog');
 const scheduler = require('../services/schedulerService');
 const { toShiftEnum } = require('../utils/shiftType');
+const { recomputeStaffMetrics } = require('../services/metricsService');
 const logger = require('../config/logger');
 
 /** Normalize any date to UTC midnight so peer-shift/day matching is exact. */
@@ -190,6 +191,19 @@ exports.markAttendance = async (req, res, next) => {
     }
     shift.attendance = status;
     await shift.save();
+
+    // Attendance feeds reliability + analytics — refresh the assignee AND the
+    // coverer (if any), since a covered shift's hours belong to the coverer (Phase 8).
+    try {
+      const d = new Date(shift.date);
+      const period = { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
+      const targets = [shift.staffId];
+      if (shift.coveredBy) targets.push(shift.coveredBy);
+      await Promise.all(targets.map((id) => recomputeStaffMetrics(id, shift.locationId, period)));
+    } catch (e) {
+      logger.error('Metric recompute after attendance failed (non-fatal):', e);
+    }
+
     res.status(200).json({ success: true, data: shift });
   } catch (err) {
     logger.error('Error in markAttendance:', err);

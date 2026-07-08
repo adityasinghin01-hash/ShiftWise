@@ -153,7 +153,7 @@ exports.acceptInvite = async (req, res, next) => {
 
     const isWebClient = req.body.clientType === 'web' || req.body.source === 'web';
     if (isWebClient) {
-      res.cookie('spinx_refresh', refreshToken, {
+      res.cookie('shiftwise_refresh', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',

@@ -1,4 +1,4 @@
-/* ── SPINX ADMIN PANEL ── */
+/* ── SHIFTWISE ADMIN PANEL ── */
 
 import { adminApi } from '../api.js';
 import { toast } from '../toast.js';

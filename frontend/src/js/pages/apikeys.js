@@ -1,4 +1,4 @@
-/* ── SPINX API KEYS PAGE ── */
+/* ── SHIFTWISE API KEYS PAGE ── */
 
 import { apiKeyApi } from '../api.js';
 import { toast } from '../toast.js';
@@ -11,7 +11,7 @@ export async function renderApiKeys() {
       <div class="page-header-row">
         <div>
           <h1 class="page-title">API Keys</h1>
-          <p class="page-subtitle">Manage programmatic access to the Spinx API</p>
+          <p class="page-subtitle">Manage programmatic access to the ShiftWise API</p>
         </div>
         <div class="page-actions">
           <button class="btn btn-primary" id="new-key-btn">+ Generate Key</button>
@@ -55,7 +55,7 @@ function renderKeys(keys) {
       <div class="empty-state">
         <div class="empty-state-icon">🔑</div>
         <div class="empty-state-title">No API keys yet</div>
-        <div class="empty-state-desc">Generate a key to start using the Spinx API programmatically</div>
+        <div class="empty-state-desc">Generate a key to start using the ShiftWise API programmatically</div>
         <button class="btn btn-primary" id="empty-key-btn">+ Generate Key</button>
       </div>`;
     document.getElementById('empty-key-btn')?.addEventListener('click', showCreateModal);

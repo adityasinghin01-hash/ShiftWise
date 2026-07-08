@@ -1,4 +1,4 @@
-/* ── SPINX WEBHOOKS PAGE ── */
+/* ── SHIFTWISE WEBHOOKS PAGE ── */
 
 import { webhookApi } from '../api.js';
 import { toast } from '../toast.js';

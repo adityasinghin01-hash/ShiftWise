@@ -1,4 +1,4 @@
-/* ── SPINX ROUTER HELPERS ── */
+/* ── SHIFTWISE ROUTER HELPERS ── */
 /* Extracted to break circular import: app.js ↔ auth.js */
 
 export const appEl = () => document.getElementById('app');

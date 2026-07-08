@@ -1,5 +1,5 @@
 {
-  "name": "spinx-auth-backend",
+  "name": "shiftwise-backend",
   "version": "1.0.0",
   "description": "Reusable Node.js auth backend boilerplate",
   "engines": {

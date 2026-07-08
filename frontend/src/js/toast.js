@@ -1,4 +1,4 @@
-/* ── SPINX TOAST UTILITY ── */
+/* ── SHIFTWISE TOAST UTILITY ── */
 
 const getContainer = () => document.getElementById('toast-container');
 
@@ -14,10 +14,14 @@ export function toast(message, type = 'info', duration = 4000) {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.style.background = COLORS[type] || COLORS.info;
-  el.innerHTML = `
-    <span class="toast-icon">${ICONS[type] || ICONS.info}</span>
-    <span>${message}</span>
-  `;
+  // Icon is a trusted constant; the message may contain user data → set as text
+  // (never innerHTML) to prevent XSS.
+  const icon = document.createElement('span');
+  icon.className = 'toast-icon';
+  icon.textContent = ICONS[type] || ICONS.info;
+  const msg = document.createElement('span');
+  msg.textContent = message;
+  el.append(icon, msg);
   getContainer().appendChild(el);
   setTimeout(() => {
     el.style.opacity = '0';

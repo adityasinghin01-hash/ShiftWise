@@ -272,7 +272,7 @@ const login = async (req, res, next) => {
     const isWebClient = req.body.clientType === 'web' || req.body.source === 'web';
     if (isWebClient) {
       const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-      res.cookie('spinx_refresh', refreshToken, {
+      res.cookie('shiftwise_refresh', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
@@ -365,7 +365,7 @@ const googleSignup = async (req, res, next) => {
     // Task 5: HttpOnly cookie for web clients
     const isWebClient = req.body.clientType === 'web' || req.body.source === 'web';
     if (isWebClient) {
-      res.cookie('spinx_refresh', refreshToken, {
+      res.cookie('shiftwise_refresh', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
@@ -460,7 +460,7 @@ const googleLogin = async (req, res, next) => {
     // Task 5: HttpOnly cookie for web clients
     const isWebClient = req.body.clientType === 'web' || req.body.source === 'web';
     if (isWebClient) {
-      res.cookie('spinx_refresh', refreshToken, {
+      res.cookie('shiftwise_refresh', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
@@ -504,7 +504,7 @@ const googleLogin = async (req, res, next) => {
 const refreshToken = async (req, res, next) => {
   try {
     // Task 5: Accept token from cookie OR body (cookie priority for web)
-    const incomingToken = req.cookies?.spinx_refresh || req.body.refreshToken;
+    const incomingToken = req.cookies?.shiftwise_refresh || req.body.refreshToken;
 
     if (!incomingToken) {
       return res.status(400).json({ message: 'Refresh token is required' });
@@ -621,9 +621,9 @@ const refreshToken = async (req, res, next) => {
     }
 
     // Task 5: If cookie mode (token came from cookie), set new cookie
-    const isCookieMode = !!req.cookies?.spinx_refresh;
+    const isCookieMode = !!req.cookies?.shiftwise_refresh;
     if (isCookieMode) {
-      res.cookie('spinx_refresh', newRefreshToken, {
+      res.cookie('shiftwise_refresh', newRefreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
@@ -647,11 +647,11 @@ const refreshToken = async (req, res, next) => {
 const logout = async (req, res, next) => {
   try {
     // Task 5: Accept token from cookie OR body (cookie priority)
-    const incomingToken = req.cookies?.spinx_refresh || req.body.refreshToken;
+    const incomingToken = req.cookies?.shiftwise_refresh || req.body.refreshToken;
 
     // Task 5: Always clear cookie if present
-    if (req.cookies?.spinx_refresh) {
-      res.clearCookie('spinx_refresh', { path: '/' });
+    if (req.cookies?.shiftwise_refresh) {
+      res.clearCookie('shiftwise_refresh', { path: '/' });
     }
 
     if (!incomingToken) {

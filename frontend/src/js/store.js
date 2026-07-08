@@ -1,6 +1,6 @@
-/* ── SPINX AUTH STATE STORE ── */
+/* ── SHIFTWISE AUTH STATE STORE ── */
 
-const KEY = 'spinx_user';
+const KEY = 'shiftwise_user';
 
 export const store = {
   user: null,

@@ -1,10 +1,10 @@
-/* ── SPINX MOCK DATA LAYER ── */
-/* Activated when: sessionStorage.getItem('spinx_mock') === 'true'
+/* ── SHIFTWISE MOCK DATA LAYER ── */
+/* Activated when: sessionStorage.getItem('shiftwise_mock') === 'true'
    OR import.meta.env.VITE_MOCK_API === 'true'
    Intercepts all api.js calls and returns plausible fake data.       */
 
 const ENABLED =
-  sessionStorage.getItem('spinx_mock') === 'true' || import.meta.env.VITE_MOCK_API === 'true';
+  sessionStorage.getItem('shiftwise_mock') === 'true' || import.meta.env.VITE_MOCK_API === 'true';
 
 export const isMockMode = () => ENABLED;
 
@@ -19,7 +19,7 @@ const ok = (data) => ({ success: true, data });
 const MOCK_USERS = [
   {
     _id: 'u1',
-    email: 'admin@spinx.dev',
+    email: 'admin@shiftwise.dev',
     name: 'Aditya Singh',
     role: 'admin',
     isVerified: true,
@@ -216,7 +216,7 @@ export const mockProfileApi = {
     await delay();
     return ok({
       _id: 'mock001',
-      email: 'admin@spinx.dev',
+      email: 'admin@shiftwise.dev',
       name: 'Aditya Singh',
       role: 'admin',
       isVerified: true,

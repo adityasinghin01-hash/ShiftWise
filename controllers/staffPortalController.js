@@ -12,8 +12,8 @@ const Shift = require('../models/Shift');
 const Schedule = require('../models/Schedule');
 const StaffMember = require('../models/StaffMember');
 const StaffMetrics = require('../models/StaffMetrics');
-const Notification = require('../models/Notification');
 const Business = require('../models/Business');
+const { notify } = require('../services/notificationService');
 const { reliabilityScore } = require('../services/schedulerService');
 const { startOfWeek } = require('../utils/weekUtils');
 const logger = require('../config/logger');
@@ -188,7 +188,7 @@ exports.disputeShift = async (req, res, next) => {
     // Manager request: notify the business owner so they can resolve it.
     const business = req.business || (await Business.findById(shift.businessId));
     if (business?.ownerId) {
-      await Notification.create({
+      await notify({
         userId: business.ownerId,
         businessId: shift.businessId,
         type: 'shift_disputed',
