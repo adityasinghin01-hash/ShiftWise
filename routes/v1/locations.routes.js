@@ -70,11 +70,14 @@ router.get(
   templateController.listTemplates
 );
 
+
 // ── GET /api/v1/locations/:id/timeoff — time-off requests for a location (owner) ──
 router.get('/:id/timeoff', timeoffController.locationTimeOff);
 
 // ── GET /api/v1/locations/:id/swaps — swap requests for a location (owner) ──
 router.get('/:id/swaps', swapController.locationSwaps);
+
+
 
 // ── PUT /api/v1/locations/:id — update ──
 router.put('/:id', locationUpdateSchema, locationController.updateLocation);
