@@ -801,29 +801,34 @@ async function coverCandidates(shift) {
   });
   const metricBy = new Map(metrics.map((m) => [String(m.staffId), m]));
 
-  const out = [];
-  for (const s of staff) {
-    if (String(s._id) === String(shift.staffId)) continue; // absent person can't cover self
-    const verdict = await verifyAssignment({
-      scheduleId: shift.scheduleId,
-      staffId: s._id,
-      date: shift.date,
-      startTime: shift.startTime,
-      endTime: shift.endTime,
-      shiftType: shift.shiftType,
-      excludeShiftId: shift._id,
-    });
-    if (verdict.hard.length) continue; // ineligible — would break a hard rule
-    const rel = reliabilityScore(metricBy.get(String(s._id)));
-    out.push({
-      staffId: String(s._id),
-      name: s.name,
-      role: s.role,
-      reliabilityScore: rel,
-      canAutoClaim: rel >= AUTO_CLAIM_THRESHOLD || !!s.forceTrustCover,
-      softWarnings: verdict.soft.length,
-    });
-  }
+  // Candidate checks are independent → run concurrently, then filter (avoids the
+  // serial per-candidate round-trip pile-up).
+  const checked = await Promise.all(
+    staff
+      .filter((s) => String(s._id) !== String(shift.staffId)) // absent person can't cover self
+      .map(async (s) => {
+        const verdict = await verifyAssignment({
+          scheduleId: shift.scheduleId,
+          staffId: s._id,
+          date: shift.date,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          shiftType: shift.shiftType,
+          excludeShiftId: shift._id,
+        });
+        if (verdict.hard.length) return null; // ineligible — would break a hard rule
+        const rel = reliabilityScore(metricBy.get(String(s._id)));
+        return {
+          staffId: String(s._id),
+          name: s.name,
+          role: s.role,
+          reliabilityScore: rel,
+          canAutoClaim: rel >= AUTO_CLAIM_THRESHOLD || !!s.forceTrustCover,
+          softWarnings: verdict.soft.length,
+        };
+      })
+  );
+  const out = checked.filter(Boolean);
   out.sort(
     (a, b) =>
       b.reliabilityScore - a.reliabilityScore || String(a.staffId).localeCompare(String(b.staffId))

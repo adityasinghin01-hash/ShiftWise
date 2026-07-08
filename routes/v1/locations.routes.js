@@ -7,7 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 
 const locationController = require('../../controllers/locationController');
 const availabilityController = require('../../controllers/availabilityController');
@@ -64,7 +64,11 @@ router.get('/:id', locationController.getLocation);
 router.get('/:id/availability', availabilityController.getLocationAvailability);
 
 // ── GET /api/v1/locations/:id/templates — saved schedule templates (owner) ──
-router.get('/:id/templates', templateController.listTemplates);
+router.get(
+  '/:id/templates',
+  validate([param('id').isMongoId().withMessage('Invalid location id.')]),
+  templateController.listTemplates
+);
 
 // ── GET /api/v1/locations/:id/timeoff — time-off requests for a location (owner) ──
 router.get('/:id/timeoff', timeoffController.locationTimeOff);

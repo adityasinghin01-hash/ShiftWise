@@ -133,4 +133,21 @@ describe('Phase 4 — schedule templates', () => {
     // The Wednesday shift should land on week B's Wednesday (2026-10-14).
     expect(new Date(res.body.data.shifts[0].date).toISOString().slice(0, 10)).toBe('2026-10-14');
   });
+
+  it('rejects a malformed template id (422, not a 500 cast error)', async () => {
+    const res = await request(app)
+      .delete('/api/v1/templates/not-a-real-id')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(422);
+  });
+
+  it('deletes a template', async () => {
+    const del = await request(app)
+      .delete(`/api/v1/templates/${templateId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(del.status).toBe(200);
+    expect(String(del.body.data.id)).toBe(String(templateId));
+    // It's really gone.
+    expect(await ScheduleTemplate.findById(templateId)).toBeNull();
+  });
 });
