@@ -100,7 +100,7 @@ if (process.env.NODE_ENV === 'production') {
 const logger = winston.createLogger({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   // M10 FIX: Match package.json "name" so log aggregators filter consistently.
-  defaultMeta: { service: 'spinx-auth-backend' },
+  defaultMeta: { service: 'shiftwise-backend' },
   transports,
   // Don't crash the app if logging fails
   exitOnError: false,

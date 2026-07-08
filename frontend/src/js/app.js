@@ -1,4 +1,4 @@
-/* ── SPINX SPA ROUTER ── */
+/* ── SHIFTWISE SPA ROUTER ── */
 
 import { store } from './store.js';
 import { auth, authApi } from './api.js';
@@ -136,12 +136,12 @@ async function init() {
   // Silent token refresh if session data exists but in-memory token is gone
   if (store.isLoggedIn() && !auth.getToken()) {
     try {
-      const storedRefresh = sessionStorage.getItem('spinx_refresh');
+      const storedRefresh = sessionStorage.getItem('shiftwise_refresh');
       const res = await authApi.refreshToken(
         storedRefresh ? { refreshToken: storedRefresh } : undefined
       );
       if (res.accessToken) auth.setToken(res.accessToken);
-      if (res.refreshToken) sessionStorage.setItem('spinx_refresh', res.refreshToken);
+      if (res.refreshToken) sessionStorage.setItem('shiftwise_refresh', res.refreshToken);
     } catch {
       store.clear();
     }

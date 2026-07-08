@@ -1,4 +1,4 @@
-/* ── SPINX AUTH PAGES (Login / Signup / Forgot / Verify) ── */
+/* ── SHIFTWISE AUTH PAGES (Login / Signup / Forgot / Verify) ── */
 /* reCAPTCHA v2 on Signup · Google Identity Services on Login + Signup    */
 
 import { auth, authApi, mfaApi } from '../api.js';
@@ -166,7 +166,7 @@ function showMfaChallenge(mfaToken) {
       const body = code.length <= 6 ? { mfaToken, totpCode: code } : { mfaToken, backupCode: code };
       const res = await mfaApi.mfaLogin(body);
       auth.setToken(res.accessToken);
-      if (res.refreshToken) sessionStorage.setItem('spinx_refresh', res.refreshToken);
+      if (res.refreshToken) sessionStorage.setItem('shiftwise_refresh', res.refreshToken);
       store.save(res.user);
       toast(`Welcome back, ${store.name}!`, 'success');
       navigate('dashboard');
@@ -283,7 +283,7 @@ function renderLogin() {
 
       const { accessToken, refreshToken, user } = res;
       auth.setToken(accessToken);
-      if (refreshToken) sessionStorage.setItem('spinx_refresh', refreshToken);
+      if (refreshToken) sessionStorage.setItem('shiftwise_refresh', refreshToken);
       store.save(user);
       toast(`Welcome back, ${store.name}!`, 'success');
       navigate('dashboard');

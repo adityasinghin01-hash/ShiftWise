@@ -1,4 +1,4 @@
-/* ── SPINX PROFILE PAGE ── */
+/* ── SHIFTWISE PROFILE PAGE ── */
 
 import { profileApi, mfaApi } from '../api.js';
 import { store } from '../store.js';

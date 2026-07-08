@@ -1,4 +1,4 @@
-/* ── SPINX TOAST UTILITY ── */
+/* ── SHIFTWISE TOAST UTILITY ── */
 
 const getContainer = () => document.getElementById('toast-container');
 

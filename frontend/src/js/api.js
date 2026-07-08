@@ -1,4 +1,4 @@
-/* ── SPINX API CLIENT ── */
+/* ── SHIFTWISE API CLIENT ── */
 
 import {
   isMockMode,

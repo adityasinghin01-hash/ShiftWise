@@ -1,4 +1,4 @@
-/* ── SPINX LAYOUT HELPER ── */
+/* ── SHIFTWISE LAYOUT HELPER ── */
 /* Provides mountLayout without circular imports from app.js */
 
 import { store } from './store.js';
@@ -90,12 +90,12 @@ export function mountLayout(contentHTML, activeRoute = null) {
   document.getElementById('logout-btn')?.addEventListener('click', async () => {
     if (!confirm('Sign out?')) return;
     try {
-      const storedRefresh = sessionStorage.getItem('spinx_refresh');
+      const storedRefresh = sessionStorage.getItem('shiftwise_refresh');
       await authApi.logout(storedRefresh ? { refreshToken: storedRefresh } : {});
     } catch {}
     auth.clear();
     store.clear();
-    sessionStorage.removeItem('spinx_refresh');
+    sessionStorage.removeItem('shiftwise_refresh');
     toast('Signed out', 'success');
     location.hash = 'login';
   });

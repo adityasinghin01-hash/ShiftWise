@@ -64,7 +64,7 @@ const COMMON_PASSWORDS = new Set([
 ]);
 
 // Context words that are too guessable
-const CONTEXT_WORDS = ['spinx', 'aditya', 'backend', 'auth', 'admin'];
+const CONTEXT_WORDS = ['shiftwise', 'aditya', 'backend', 'auth', 'admin'];
 
 /**
  * Validates password strength.
