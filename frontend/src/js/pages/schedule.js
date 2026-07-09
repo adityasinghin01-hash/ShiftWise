@@ -167,10 +167,14 @@ function render() {
 function previewBanner() {
   const n = preview.shifts.length;
   const c = preview.conflicts.filter((x) => x.type === 'UNDERSTAFFED').length;
+  const hint =
+    n === 0
+      ? `<div style="margin-top:6px;font-size:0.82rem;color:var(--text-secondary)">Nobody could be scheduled — staff need to be assigned to this location <em>and</em> have availability set for this week.</div>`
+      : '';
   return `<div class="card" style="border-color:var(--warning);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
     <div><strong>Preview ready</strong> — ${n} shift${n === 1 ? '' : 's'}, fairness ${preview.fairnessScore}%${
       c ? `, <span style="color:var(--warning)">${c} unfilled</span>` : ''
-    }. Accept to save, or discard.</div>
+    }. Accept to save, or discard.${hint}</div>
     <div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" id="accept-btn">Accept</button>
     <button class="btn btn-ghost btn-sm" id="discard-btn">Discard</button></div>
   </div>`;
@@ -417,7 +421,15 @@ async function doGenerate() {
     const d = (await scheduleApi.generate(schedule._id)).data;
     preview = { shifts: d.preview || [], conflicts: d.conflicts || [], fairnessScore: d.fairnessScore };
     render();
-    toast(`Preview: ${preview.shifts.length} shifts, fairness ${preview.fairnessScore}%`, 'success');
+    if (preview.shifts.length === 0) {
+      toast(
+        'No shifts could be filled — check that staff are assigned to this location and have set their availability for this week.',
+        'warning'
+      );
+    } else {
+      const n = preview.shifts.length;
+      toast(`Preview: ${n} shift${n === 1 ? '' : 's'}, fairness ${preview.fairnessScore}%`, 'success');
+    }
   } catch (err) {
     toast(err.message || 'Generation failed', 'error');
     btn.disabled = false;

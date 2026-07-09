@@ -250,7 +250,16 @@ async function onNext() {
     return renderOnboarding();
   }
 
-  // Step 3 → Finish: create everything
+  // Step 3 → Finish: block duplicate staff emails BEFORE creating anything.
+  const staffRows = state.staff.filter((s) => s.name && s.email);
+  const emails = staffRows.map((s) => s.email.trim().toLowerCase());
+  const dupEmail = emails.find((e, i) => emails.indexOf(e) !== i);
+  if (dupEmail) {
+    return toast(
+      `Two staff share the email "${dupEmail}". Each staff member needs a unique email.`,
+      'error'
+    );
+  }
   await finish();
 }
 
@@ -283,7 +292,22 @@ async function finish() {
     if (validStaff.length) {
       try {
         const { staffApi } = await import('../api.js');
-        await staffApi.bulk({ rows: validStaff, sendInvite: state.sendInvites, locationIds: locationId ? [locationId] : [] });
+        const bulkRes = await staffApi.bulk({
+          rows: validStaff,
+          sendInvite: state.sendInvites,
+          locationIds: locationId ? [locationId] : [],
+        });
+        // Surface any rows the server rejected (e.g. duplicate email) instead of
+        // silently dropping them.
+        const failed = bulkRes?.data?.errors || [];
+        if (failed.length) {
+          toast(
+            `${failed.length} staff couldn't be added (${failed
+              .map((f) => f.reason)
+              .join(', ')}). You can add them later in Team.`,
+            'warning'
+          );
+        }
       } catch (staffErr) {
         // Non-fatal: business + location are created; staff can be added later in Team.
         console.warn('Wizard staff creation failed:', staffErr.message);
