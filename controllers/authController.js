@@ -68,15 +68,15 @@ const signup = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email });
 
-    // H4 FIX: Return the same 200 response regardless of whether the email
-    // is already registered (verified or unverified). Previously returning 409
-    // for verified users was an enumeration oracle.
-    //
-    // Case 1: User exists AND is verified → silent 200, no new email
+    // Case 1: User exists AND is verified → explicit "already registered" error.
+    // PRODUCT DECISION (Rule 1): we intentionally trade the anti-enumeration
+    // property for clearer UX — a duplicate signup should tell the user to log in
+    // rather than silently pretend to succeed and send no email.
     if (existingUser && existingUser.isVerified) {
-      return res.status(200).json({
-        success: true,
-        message: 'Account created. Verification email sent.',
+      return res.status(409).json({
+        success: false,
+        code: 'email_exists',
+        message: 'This email is already registered. Please log in instead.',
       });
     }
 

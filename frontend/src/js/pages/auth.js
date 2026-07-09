@@ -110,6 +110,7 @@ function mountGISButton(containerId, callback) {
 /* ── Render reCAPTCHA v2 widget (dark theme) — returns Promise<widgetId> ── */
 function renderRecaptcha(containerId) {
   return new Promise((resolve) => {
+    let attempts = 0;
     const tryRender = () => {
       if (window.grecaptcha?.render) {
         try {
@@ -123,8 +124,12 @@ function renderRecaptcha(containerId) {
           /* Already rendered — just get the existing response container */
           resolve(0);
         }
-      } else {
+      } else if (attempts++ < 20) {
         setTimeout(tryRender, 200);
+      } else {
+        // grecaptcha never loaded (script blocked/offline). Resolve anyway so the
+        // submit handler STILL attaches — otherwise the button would be dead.
+        resolve(null);
       }
     };
     tryRender();
@@ -262,6 +267,10 @@ function renderLogin() {
           ? window.grecaptcha.getResponse(_loginRecaptchaWidgetId)
           : window.grecaptcha.getResponse();
     }
+    // Dev-only fallback: if the widget didn't render/produce a token (blocked or
+    // flaky on localhost), use the backend dev-bypass so local testing isn't
+    // blocked. Production (import.meta.env.DEV === false) still requires a real token.
+    if (!recaptchaToken && import.meta.env.DEV) recaptchaToken = 'dev-bypass';
     if (!recaptchaToken) {
       capErrEl.style.display = 'flex';
       return;
@@ -420,6 +429,9 @@ function renderSignup() {
           ? window.grecaptcha.getResponse(_signupRecaptchaWidgetId)
           : window.grecaptcha.getResponse();
     }
+    // Dev-only fallback (see login handler) — keeps local signup working when the
+    // widget is flaky; production still requires a real token.
+    if (!recaptchaToken && import.meta.env.DEV) recaptchaToken = 'dev-bypass';
     if (!recaptchaToken) {
       capErrEl.style.display = 'flex';
       return;

@@ -92,10 +92,11 @@ describe('Auth Flow: Signup', () => {
       recaptchaToken: 'dev-bypass',
     });
 
-    expect(res.status).toBe(200);
-    // H4 FIX: Same response as successful signup — no enumeration oracle.
-    // Previously returned 409 which revealed the email is already registered.
-    expect(res.body.success).toBe(true);
+    // Rule 1: a verified duplicate is rejected explicitly (clearer UX over
+    // anti-enumeration — product decision).
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/already registered/i);
 
     // Revert verification for later tests
     user.isVerified = false;

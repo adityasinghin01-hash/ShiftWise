@@ -27,7 +27,16 @@ const emailField = (field = 'email') =>
     .withMessage('Email is required.')
     .isEmail()
     .withMessage('Please enter a valid email address.')
-    .normalizeEmail({ gmail_remove_dots: false })
+    // Keep +subaddresses (aliases) distinct — do NOT collapse user+tag@gmail.com to
+    // user@gmail.com. Only lowercase/trim. Stripping the tag silently merged alias
+    // signups into one account (no email sent) and broke alias logins.
+    .normalizeEmail({
+      gmail_remove_dots: false,
+      gmail_remove_subaddress: false,
+      outlook_remove_subaddress: false,
+      yahoo_remove_subaddress: false,
+      icloud_remove_subaddress: false,
+    })
     .isLength({ max: 254 })
     .withMessage('Email is too long.');
 

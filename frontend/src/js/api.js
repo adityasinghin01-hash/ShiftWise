@@ -16,17 +16,60 @@ const HEALTH_BASE = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace('/api/v1', '/api')
   : '/api';
 
-let _accessToken = null;
+// Persist the access token in sessionStorage so a browser REFRESH keeps the user
+// logged in (survives the page reload within the tab) instead of bouncing to login.
+const TOKEN_KEY = 'shiftwise_token';
+let _accessToken = (() => {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+})();
 
 export const auth = {
   setToken: (t) => {
     _accessToken = t;
+    try {
+      if (t) sessionStorage.setItem(TOKEN_KEY, t);
+      else sessionStorage.removeItem(TOKEN_KEY);
+    } catch {}
   },
   getToken: () => _accessToken,
   clear: () => {
     _accessToken = null;
+    try {
+      sessionStorage.removeItem(TOKEN_KEY);
+    } catch {}
   },
 };
+
+/** Silent token refresh (used on a 401). Returns true if a new access token was obtained. */
+async function trySilentRefresh() {
+  try {
+    let rt = null;
+    try {
+      rt = sessionStorage.getItem('shiftwise_refresh');
+    } catch {}
+    const res = await fetch(`${BASE}/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: rt ? JSON.stringify({ refreshToken: rt }) : undefined,
+    });
+    if (!res.ok) return false;
+    const d = await res.json().catch(() => ({}));
+    if (d.accessToken) auth.setToken(d.accessToken);
+    if (d.refreshToken) {
+      try {
+        sessionStorage.setItem('shiftwise_refresh', d.refreshToken);
+      } catch {}
+    }
+    return !!d.accessToken;
+  } catch {
+    return false;
+  }
+}
 
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -36,7 +79,7 @@ function uuidv4() {
 }
 
 async function request(path, opts = {}) {
-  const { body, method = 'GET', apiKey, base = BASE } = opts;
+  const { body, method = 'GET', apiKey, base = BASE, _retry = false } = opts;
 
   const headers = {
     'Content-Type': 'application/json',
@@ -55,6 +98,25 @@ async function request(path, opts = {}) {
   if (res.status === 429) {
     const retryAfter = res.headers.get('Retry-After') || 60;
     throw new ApiError(429, `Rate limited. Try again in ${retryAfter}s.`);
+  }
+
+  // Access token expired mid-session → silently refresh ONCE and retry, so a page
+  // refresh (or an idle tab) reloads fresh data instead of bouncing to login.
+  const AUTH_PATHS = ['/login', '/signup', '/refresh-token', '/logout'];
+  if (res.status === 401 && !_retry && !AUTH_PATHS.includes(path)) {
+    if (await trySilentRefresh()) {
+      return request(path, { ...opts, _retry: true });
+    }
+    // Refresh failed → the session is truly dead. Clear it and route to login,
+    // rather than looping forever on a page that can't load.
+    auth.clear();
+    try {
+      sessionStorage.removeItem('shiftwise_user');
+      sessionStorage.removeItem('shiftwise_refresh');
+    } catch {}
+    if (typeof location !== 'undefined' && !String(location.hash).startsWith('#login')) {
+      location.hash = '#login';
+    }
   }
 
   let data;
